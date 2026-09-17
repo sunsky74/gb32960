@@ -1,8 +1,8 @@
-// Package realtime defines GB/T 32960.3-2025 realtime data sub-structs.
+// Package realtime 定义 GB/T 32960.3-2025 实时数据子结构体。
 //
-// NOTE: Structs in this package do NOT embed gbt2025.GBT2025Body to avoid a
-// circular import (gbt2025 imports this package for sub-record types, so this
-// package cannot import gbt2025 back). Each struct defines Version() directly.
+// 注意:本包中的结构体不内嵌 gbt2025.GBT2025Body,以避免
+// 循环导入(gbt2025 会导入本包以引用子记录类型,因此本包
+// 无法再导入回 gbt2025)。每个结构体直接定义 Version()。
 package realtime
 
 import (
@@ -12,13 +12,13 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// MotorDataV2025 is a single V2025 drive motor record (TLV 0x02).
-// Compared to V2016 MotorData, REMOVES controllerVoltage and controllerCurrent.
-// MotorState maps to Java MotorState: 0x01=CONSUMING, 0x02=GENERATING,
-// 0x03=OFF, 0x04=READY, 0xFE=EXCEPTION, 0xFF=INVALID.
+// MotorDataV2025 是一条 V2025 驱动电机记录(TLV 0x02)。
+// 与 V2016 的 MotorData 相比,移除了 controllerVoltage 和 controllerCurrent。
+// MotorState 映射到 Java 的 MotorState:0x01=CONSUMING, 0x02=GENERATING,
+// 0x03=OFF, 0x04=READY, 0xFE=EXCEPTION, 0xFF=INVALID。
 type MotorDataV2025 struct {
 	MotorSeq              int     // 驱动电机序号
-	MotorState            byte    // MotorState enum
+	MotorState            byte    // MotorState 枚举
 	ControllerTemperature float64 // °C, offset=40
 	MotorSpeed            float64 // rpm, offset=32000
 	MotorTorque           float64 // N·m, offset=20000, scale=0.1

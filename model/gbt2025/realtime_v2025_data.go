@@ -5,15 +5,15 @@ import (
 
 	"github.com/sunsky74/gb32960/api"
 	"github.com/sunsky74/gb32960/model"
-	"github.com/sunsky74/gb32960/modelutil"
 	"github.com/sunsky74/gb32960/model/gbt2016/realtime"
 	v2025rt "github.com/sunsky74/gb32960/model/gbt2025/realtime"
+	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// RealTimeV2025Data is the V2025 realtime data report (command 0x02).
-// Contains a BeanTime and optional TLV-encoded sub-records.
-// V2025 reuses the V2016 VehicleData struct (no separate VehicleDataV2025).
-// There is NO Extremum in V2025 (TLV 0x06 is Alarm; audit 2026-07-31).
+// RealTimeV2025Data 是 V2025 实时数据上报(命令 0x02)。
+// 包含一个 BeanTime 和可选的 TLV 编码子记录。
+// V2025 复用 V2016 VehicleData 结构体(没有单独的 VehicleDataV2025)。
+// V2025 中没有 Extremum(TLV 0x06 是 Alarm;audit 2026-07-31)。
 type RealTimeV2025Data struct {
 	_                          GBT2025Body
 	BeanTime                   model.BeanTime

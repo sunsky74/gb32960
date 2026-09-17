@@ -13,27 +13,27 @@ import (
 	v2025rt "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 	"github.com/sunsky74/gb32960/utils"
 
-	// Aggregator import: triggers all codec init() registrations so api.GetCodec
-	// lookups below succeed for every V2016 + V2025 message body type.
+	// 聚合导入:触发所有编解码器的 init() 注册,使下面的 api.GetCodec
+	// 查找对每个 V2016 + V2025 消息体类型都能成功。
 	_ "github.com/sunsky74/gb32960/codec/all"
 )
 
-// TestRoundtrip exercises the encode→decode→re-encode byte-stability contract
-// for every V2016 + V2025 message body type. For each sample:
+// TestRoundtrip 对每个 V2016 + V2025 消息体类型演练
+// 编码→解码→重编码的字节稳定性契约。对每个样本:
 //
-//  1. Encode via model.MessageBody.Bytes() (delegates to the registered codec).
-//  2. Decode via api.GetCodec(...).Decode(ByteReader).
-//  3. Re-encode the decoded message.
-//  4. Compare original vs re-encoded — must be byte-equal.
+//  1. 通过 model.MessageBody.Bytes() 编码(委托给已注册的编解码器)。
+//  2. 通过 api.GetCodec(...).Decode(ByteReader) 解码。
+//  3. 重编码解码出的消息。
+//  4. 比较原始与重编码结果,必须字节相等。
 //
-// This is the Plan 2 Task E1 acceptance test: any drift in codec field order,
-// converter scale/offset, or list-count width surfaces here as a byte mismatch.
-// All previously existing codec_test/*_roundtrip_test.go files continue to
-// run alongside this suite; this file broadens coverage to every message type
-// instead of relying on per-type ad-hoc tests.
+// 这是 Plan 2 Task E1 验收测试:编解码器字段顺序、转换器
+// 缩放/偏移或列表计数宽度的任何偏差都会在此以字节不匹配暴露。
+// 所有既有的 codec_test/*_roundtrip_test.go 文件继续
+// 与该测试集并行运行;本文件把覆盖范围扩大到所有消息类型,
+// 而不是依赖按类型零散编写的测试。
 func TestRoundtrip(t *testing.T) {
 	t.Run("V2016", func(t *testing.T) {
-		// ---- Top-level message bodies ----
+		// ---- 顶层消息体 ----
 		t.Run("VehicleLogin", func(t *testing.T) {
 			assertRoundtrip(t, &gbt2016.VehicleLogin{
 				BeanTime:  sampleBeanTime(),
@@ -66,7 +66,7 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 
-		// ---- Realtime sub-records (each tested standalone) ----
+		// ---- 实时子记录(各自独立测试) ----
 		t.Run("VehicleData", func(t *testing.T) {
 			assertRoundtrip(t, &mdlrt16.VehicleData{
 				OperatingState:      0x01,
@@ -129,19 +129,19 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("LocationData", func(t *testing.T) {
-			// Model stores signed degrees (Java parity: ÷1e6 + hemisphere bits)
+			// model 存储带符号的角度值(与 Java 一致:÷1e6 + 半球位)
 			assertRoundtrip(t, &mdlrt16.LocationData{
 				Valid:     true,
 				Longitude: 116.4074,
 				Latitude:  39.9042,
 			})
-			// South/west hemispheres exercise the sign bits (status 0x06)
+			// 南/西半球用于触发符号位(状态 0x06)
 			assertRoundtrip(t, &mdlrt16.LocationData{
 				Valid:     true,
 				Longitude: -116.4074,
 				Latitude:  -39.9042,
 			})
-			// BYTE4 error sentinel passes through unscaled
+			// BYTE4 异常哨兵值不缩放直接直通
 			assertRoundtrip(t, &mdlrt16.LocationData{
 				Valid:     false,
 				Longitude: 4294967294,
@@ -165,8 +165,8 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("AlarmData", func(t *testing.T) {
-			// AlarmData booleans are the source of truth on encode (codec
-			// repacks them into AlarmBitIdentify). Set booleans, NOT the mask.
+			// AlarmData 的布尔字段是编码时的真理源(编解码器
+			// 将其重新打包进 AlarmBitIdentify)。设置布尔字段,而不是掩码。
 			assertRoundtrip(t, &mdlrt16.AlarmData{
 				MaxAlarmLevel:             2,
 				TemperatureDifferential:   true,
@@ -224,15 +224,15 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("GearPosition", func(t *testing.T) {
-			// Origin is the source of truth on encode — derived fields are
-			// recomputed on decode but never re-encoded.
+			// Origin 是编码时的真理源:派生字段在解码时重新计算,
+			// 但从不参与重编码。
 			assertRoundtrip(t, &mdlrt16.GearPosition{Origin: 0x31})
 		})
-		// model.BeanTime has no Bytes() method (it is not a MessageBody); its
-		// registered codec is exercised indirectly by every wrapper struct
-		// that embeds a BeanTime field (VehicleLogin, KeyExchangeData, ...).
+		// model.BeanTime 没有 Bytes() 方法(它不是 MessageBody);其
+		// 注册的编解码器由每个内嵌 BeanTime 字段的包装结构体
+		// (VehicleLogin、KeyExchangeData……)间接覆盖。
 
-		// ---- RealTimeData composite (multiple sub-records in one frame) ----
+		// ---- RealTimeData 复合体(一帧内多个子记录) ----
 		t.Run("RealTimeData_Composite", func(t *testing.T) {
 			assertRoundtrip(t, &gbt2016.RealTimeData{
 				BeanTime:      sampleBeanTime(),
@@ -259,9 +259,9 @@ func TestRoundtrip(t *testing.T) {
 	})
 
 	t.Run("V2025", func(t *testing.T) {
-		// ---- Top-level message bodies ----
+		// ---- 顶层消息体 ----
 		t.Run("VehicleLoginV2025", func(t *testing.T) {
-			// Per-code length slice + 24-byte codes. sum(Lengths)=2 codes.
+			// 逐编码的长度切片 + 24 字节编码。sum(Lengths)=2 个编码。
 			assertRoundtrip(t, &gbt2025.VehicleLoginV2025{
 				BeanTime:  sampleBeanTime(),
 				SerialNum: 5,
@@ -296,7 +296,7 @@ func TestRoundtrip(t *testing.T) {
 		})
 		t.Run("KeyExchangeData", func(t *testing.T) {
 			assertRoundtrip(t, &gbt2025.KeyExchangeData{
-				Type:       0x02, // RSA
+				Type:       0x02, // RSA(沿用 Java 枚举名)
 				Length:     4,
 				Key:        []byte{0xDE, 0xAD, 0xBE, 0xEF},
 				StartTime:  sampleBeanTime(),
@@ -304,8 +304,8 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("VehicleActivate", func(t *testing.T) {
-			// Signature and PublicKey bytes are arbitrary here; roundtrip
-			// stability only depends on length-prefixed byte preservation.
+			// 此处 Signature 和 PublicKey 字节为任意值;往返
+			// 稳定性只取决于带长度前缀的字节保留。
 			assertRoundtrip(t, &gbt2025.VehicleActivate{
 				CollectTime:     sampleBeanTime(),
 				ChipID:          "CHIP2025ABC001",
@@ -313,7 +313,7 @@ func TestRoundtrip(t *testing.T) {
 				PublicKey:       []byte{0x01, 0x02, 0x03, 0x04},
 				VIN:             "LSVAU2A37K2100001",
 				Signature: &v2025rt.VehicleSignature{
-					Type:    0x02, // RSA
+					Type:    0x02, // RSA(沿用 Java 枚举名)
 					RLength: 2,
 					RValue:  []byte{0xAA, 0xBB},
 					SLength: 2,
@@ -322,15 +322,15 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 
-		// ---- V2025 realtime sub-records (standalone) ----
+		// ---- V2025 实时子记录(独立测试) ----
 		t.Run("VehicleData_V2025Codec", func(t *testing.T) {
-			// V2025 reuses the V2016 VehicleData struct TYPE but registers a
-			// distinct V2025 codec under api.V2025 (see
-			// codec/gbt2025/realtime/vehicle_data_v2025_codec.go): uses
-			// CurrentConverter2025 (offset=3000, not 1000) and OMITS
-			// AccelerationValue / BrakePedalCondition. Bypass the generic
-			// helper (which would route via Version()=V2016) and exercise
-			// the V2025 codec path directly.
+			// V2025 复用 V2016 VehicleData 的结构体类型,但在 api.V2025 下
+			// 注册了独立的 V2025 编解码器(见
+			// codec/gbt2025/realtime/vehicle_data_v2025_codec.go):使用
+			// CurrentConverter2025(offset=3000,而不是 1000),并省略
+			// AccelerationValue / BrakePedalCondition。绕过通用
+			// 辅助函数(它会按 Version()=V2016 路由),直接演练
+			// V2025 编解码器路径。
 			m := &mdlrt16.VehicleData{
 				OperatingState: 0x01,
 				ChargingState:  0x02,
@@ -343,8 +343,8 @@ func TestRoundtrip(t *testing.T) {
 				DC:             0x01,
 				GearPosition:   mdlrt16.GearPosition{Origin: 0x31},
 				Insulance:      500,
-				// AccelerationValue / BrakePedalCondition deliberately omitted —
-				// V2025 codec does not encode them.
+				// 有意省略 AccelerationValue / BrakePedalCondition:
+				// V2025 编解码器不编码它们。
 			}
 			codec := api.GetCodec(api.V2025, reflect.TypeOf(m).Elem())
 			if codec == nil {
@@ -393,8 +393,8 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("FuelCellEngineV2025Data", func(t *testing.T) {
-			// HighestConOfHydrogen uses ConcentrationConverter2025 (scale=10000):
-			// decoded range is 0..6.5535 (representing % volume, e.g. 1.5% = 15000 ppm).
+			// HighestConOfHydrogen 使用 ConcentrationConverter2025(scale=10000):
+			// 解码范围为 0..6.5535(表示体积百分比,如 1.5% = 15000 ppm)。
 			assertRoundtrip(t, &v2025rt.FuelCellEngineV2025Data{
 				HighestTempOfHydrogenSystem:          65.0,
 				HighestTempProbeCodeOfHydrogenSystem: 2,
@@ -413,9 +413,9 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("LocationV2025Data", func(t *testing.T) {
-			// East+north + GCJ02 passthrough (coordType=0x02). Only Origin
-			// values are encoded; Convert* fields are derived on decode and
-			// not re-encoded, so they cannot break byte stability.
+			// 东经+北纬 + GCJ02 直通(coordType=0x02)。只编码 Origin
+			// 值;Convert* 字段在解码时派生,
+			// 不参与重编码,因此不会破坏字节稳定性。
 			assertRoundtrip(t, &v2025rt.LocationV2025Data{
 				Valid:           true,
 				NorthernFlag:    true,
@@ -426,7 +426,7 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("AlarmV2025Data", func(t *testing.T) {
-			// 28 boolean fields are source-of-truth on encode (repacked).
+			// 28 个布尔字段是编码时的真理源(会重新打包)。
 			assertRoundtrip(t, &v2025rt.AlarmV2025Data{
 				MaxAlarmLevel:                3,
 				TemperatureDifferential:      true,
@@ -469,7 +469,7 @@ func TestRoundtrip(t *testing.T) {
 					{BatteryPackSeq: 2, Voltage: 352.0, Current: 12.5, MinParallelUnits: 1, BatteryVoltages: []float64{3.67}},
 				},
 			})
-			// BYTE1 sentinel count: no entries follow (Java parity)
+			// BYTE1 哨兵计数:后续无条目(与 Java 一致)
 			assertRoundtrip(t, &v2025rt.MinParallelCellVoltageList{BatteryPackCount: 0xFF})
 		})
 		t.Run("BatteryTemp", func(t *testing.T) {
@@ -487,7 +487,7 @@ func TestRoundtrip(t *testing.T) {
 					{BatteryPackSeq: 2, TemperatureProbeCount: 1, ProbeTemperatures: []float64{27.0}},
 				},
 			})
-			// BYTE1 sentinel count: encode rewrites to fixed 0xFF (Java parity)
+			// BYTE1 哨兵计数:编码改写为固定 0xFF(与 Java 一致)
 			assertRoundtrip(t, &v2025rt.BatteryTempList{BatteryPackCount: 0xFE})
 		})
 		t.Run("FuelCellStackData", func(t *testing.T) {
@@ -510,7 +510,7 @@ func TestRoundtrip(t *testing.T) {
 					{StackSeq: 2, Voltage: 255.0, Current: 82.0, GasPressure: 52.0, AirPressure: 42.0, AirInletTemp: 36.0, CoolingWaterProbeCount: 2, CoolingWaterTemps: []float64{46.0, 47.0}},
 				},
 			})
-			// BYTE1 sentinel count: count written as-is, no entries (Java parity)
+			// BYTE1 哨兵计数:计数原样写出,无条目(与 Java 一致)
 			assertRoundtrip(t, &v2025rt.FuelCellStackDataList{StackCount: 0xFE})
 		})
 		t.Run("SuperCapacitorData", func(t *testing.T) {
@@ -541,10 +541,10 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 		t.Run("VehicleSignature", func(t *testing.T) {
-			// Standalone VehicleSignature: codec reads/writes Type + R + S.
-			// SignData is NOT on wire — only populated by parent codec.
+			// 独立的 VehicleSignature:编解码器读写 Type + R + S。
+			// SignData 不在线格式上,仅由父编解码器填充。
 			assertRoundtrip(t, &v2025rt.VehicleSignature{
-				Type:    0x02, // RSA
+				Type:    0x02, // RSA(沿用 Java 枚举名)
 				RLength: 4,
 				RValue:  []byte{0x11, 0x22, 0x33, 0x44},
 				SLength: 4,
@@ -552,7 +552,7 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 
-		// ---- RealTimeV2025Data composite (multiple sub-records) ----
+		// ---- RealTimeV2025Data 复合体(多个子记录) ----
 		t.Run("RealTimeV2025Data_Composite", func(t *testing.T) {
 			assertRoundtrip(t, &gbt2025.RealTimeV2025Data{
 				BeanTime:      sampleBeanTime(),
@@ -585,12 +585,12 @@ func TestRoundtrip(t *testing.T) {
 			})
 		})
 
-		// ---- CustomV2025Data roundtrip via parent (dispatcher) ----
-		// The CustomV2025Data codec has an encode/decode asymmetry: Encode
-		// writes CustomKey+Length+Data, but Decode reads only Length+Data
-		// (the dispatcher has already consumed the CustomKey byte as the TLV
-		// flag). So a standalone Bytes()→codec.Decode round trip does not
-		// apply — verify through the parent RealTimeV2025Data path instead.
+		// ---- CustomV2025Data 经父级(分发器)往返 ----
+		// CustomV2025Data 编解码器存在编码/解码不对称:Encode
+		// 写出 CustomKey+Length+Data,但 Decode 只读 Length+Data
+		// (分发器已把 CustomKey 字节当作 TLV 标志消费掉了)。因此独立的
+		// Bytes()→codec.Decode 往返不适用,改为通过父级
+		// RealTimeV2025Data 路径验证。
 		t.Run("RealTimeV2025Data_CustomItem", func(t *testing.T) {
 			assertRoundtrip(t, &gbt2025.RealTimeV2025Data{
 				BeanTime:   sampleBeanTime(),
@@ -600,9 +600,9 @@ func TestRoundtrip(t *testing.T) {
 	})
 }
 
-// assertRoundtrip encodes mb via its registered codec, decodes the result,
-// re-encodes, and asserts byte-identical output. Any drift in field order,
-// converter scale/offset, or list-count width surfaces as a byte mismatch.
+// assertRoundtrip 通过 mb 已注册的编解码器编码、解码结果、
+// 再重编码,并断言输出逐字节一致。字段顺序、转换器
+// 缩放/偏移或列表计数宽度的任何偏差都会以字节不匹配暴露。
 func assertRoundtrip(t *testing.T, mb model.MessageBody) {
 	t.Helper()
 
@@ -642,15 +642,15 @@ func assertRoundtrip(t *testing.T, mb model.MessageBody) {
 			structType.String(), original, len(original), reEncoded, len(reEncoded))
 	}
 
-	// Sanity: decoded struct type must match the input struct type — guards
-	// against a codec that silently returns the wrong concrete type.
+	// 基础校验:解码出的结构体类型必须与输入结构体类型一致,
+	// 防止编解码器静默返回错误的具象类型。
 	decodedStructType := reflect.TypeOf(decodedMB).Elem()
 	if decodedStructType != structType {
 		t.Errorf("decoded type drift: input %s, decoded %s", structType.String(), decodedStructType.String())
 	}
 
-	// Emit a coverage line on success so the test output makes the breadth
-	// of types covered visible without -v flag gymnastics.
+	// 成功时输出一行覆盖信息,让测试输出无需折腾 -v 开关
+	// 也能看出类型覆盖的广度。
 	t.Logf("OK %s (version=%v, %d bytes)", structType.String(), version, len(original))
 }
 
@@ -676,11 +676,11 @@ func mustDecode(t *testing.T, raw []byte, version api.GBTVersion, wantType refle
 	return m
 }
 
-// TestV2025ListCountSentinels locks the exact wire bytes for the BYTE1
-// sentinel-count contract of the three V2025 list codecs, mirroring Java:
-// decode never reads entries after a sentinel count; encode behaves
-// per-codec (stack writes the count as-is, min-parallel caps >50 at a single
-// 0xFF, battery-temp rewrites any sentinel to the fixed 0xFF byte).
+// TestV2025ListCountSentinels 锁定三个 V2025 列表编解码器 BYTE1
+// 哨兵计数约定的精确线格式字节,与 Java 一致:
+// 哨兵计数之后 decode 从不读取条目;encode 按各编解码器
+// 自身规则行事(stack 与 battery-temp 原样写出计数,min-parallel 把
+// >50 上限压为单个 0xFF)。
 func TestV2025ListCountSentinels(t *testing.T) {
 	stackType := reflect.TypeOf(v2025rt.FuelCellStackDataList{})
 	minParallelType := reflect.TypeOf(v2025rt.MinParallelCellVoltageList{})
@@ -711,10 +711,10 @@ func TestV2025ListCountSentinels(t *testing.T) {
 	})
 
 	t.Run("BatteryTempList", func(t *testing.T) {
-		// Java writes DataErrorValue.BYTE1.getInvalid() (0xFF) for ANY
-		// sentinel count — 0xFE is rewritten, not passed through.
-		if got := mustBytes(t, &v2025rt.BatteryTempList{BatteryPackCount: 0xFE}); !bytes.Equal(got, []byte{0xFF}) {
-			t.Errorf("sentinel encode: got % X, want fixed FF", got)
+		// fix 2026-09-17:表13(L220)——哨兵计数按原样写出:
+		// 0xFE(异常)不再被改写为 0xFF,与 decode 的无条目语义一致。
+		if got := mustBytes(t, &v2025rt.BatteryTempList{BatteryPackCount: 0xFE}); !bytes.Equal(got, []byte{0xFE}) {
+			t.Errorf("sentinel encode: got % X, want FE (count written as-is)", got)
 		}
 		m := mustDecode(t, []byte{0xFF}, api.V2025, tempType).(*v2025rt.BatteryTempList)
 		if m.BatteryPackCount != 0xFF || len(m.Items) != 0 {
@@ -723,34 +723,39 @@ func TestV2025ListCountSentinels(t *testing.T) {
 	})
 }
 
-// TestV2025BatteryTempEntryClamps locks the entry-level encode clamps of
-// BatteryTemp, mirroring Java BatteryPackTemperatureCodec.encodeBuffer:
-// pack seq is rewritten to 0xFF when sentinel/negative/>50, and a BYTE2
-// sentinel probe count is rewritten to the fixed 0xFFFF with temps dropped.
+// TestV2025BatteryTempEntryClamps 锁定 BatteryTemp 条目级的编码规则
+// (fix 2026-09-17,表14 L227-228):电池包序号哨兵值(0xFE/0xFF)原样保留,
+// 1~50 之外的非哨兵值(负数/>50)防御性钳制为 0xFF;
+// 探针计数哨兵值(0xFFFE/0xFFFF)原样写出且温度列表必须为空。
 func TestV2025BatteryTempEntryClamps(t *testing.T) {
-	// seq 51 (>50) → 0xFF; remaining fields still written (25.0°C → 25+40 = 0x41)
+	// 序号 51(>50) → 0xFF;其余字段仍会写出(25.0°C → 25+40 = 0x41)
 	raw := mustBytes(t, &v2025rt.BatteryTemp{BatteryPackSeq: 51, TemperatureProbeCount: 1, ProbeTemperatures: []float64{25.0}})
 	if !bytes.Equal(raw, []byte{0xFF, 0x00, 0x01, 0x41}) {
 		t.Errorf("seq>50: got % X", raw)
 	}
 
-	// seq sentinel → 0xFF; zero count still written as u16
+	// 序号哨兵值 0xFE 原样保留;零计数仍按 u16 写出
 	raw = mustBytes(t, &v2025rt.BatteryTemp{BatteryPackSeq: 0xFE})
-	if !bytes.Equal(raw, []byte{0xFF, 0x00, 0x00}) {
+	if !bytes.Equal(raw, []byte{0xFE, 0x00, 0x00}) {
 		t.Errorf("seq sentinel: got % X", raw)
 	}
 
-	// probe count 0xFFFE → fixed 0xFFFF rewrite, temps dropped
-	raw = mustBytes(t, &v2025rt.BatteryTemp{BatteryPackSeq: 1, TemperatureProbeCount: 0xFFFE, ProbeTemperatures: []float64{25.0}})
-	if !bytes.Equal(raw, []byte{0x01, 0xFF, 0xFF}) {
-		t.Errorf("count sentinel rewrite: got % X", raw)
+	// 探针计数 0xFFFE(异常)原样保留(不再改写为 0xFFFF),温度列表必须为空
+	raw = mustBytes(t, &v2025rt.BatteryTemp{BatteryPackSeq: 1, TemperatureProbeCount: 0xFFFE})
+	if !bytes.Equal(raw, []byte{0x01, 0xFF, 0xFE}) {
+		t.Errorf("count sentinel: got % X", raw)
+	}
+
+	// 计数哨兵值 + 非空温度列表自相矛盾,必须拒绝编码而不是丢弃温度
+	if raw, err := (&v2025rt.BatteryTemp{BatteryPackSeq: 1, TemperatureProbeCount: 0xFFFE, ProbeTemperatures: []float64{25.0}}).Bytes(); err == nil {
+		t.Errorf("count sentinel with temps: Encode succeeded (% X), want error", raw)
 	}
 }
 
-// TestV2025AlarmMaskPreservation locks the AlarmV2025 encode mask rule:
-// a non-zero AlarmBitIdentify is written back as-is (reserved bits 28..31
-// survive the roundtrip, mirroring Java's non-null branch); a zero mask is
-// rebuilt from the 28 booleans (Java's null branch).
+// TestV2025AlarmMaskPreservation 锁定 AlarmV2025 的编码掩码规则:
+// 非零 AlarmBitIdentify 原样写回(保留位 28..31
+// 完整通过往返,与 Java 的非空分支一致);零掩码则
+// 由 28 个布尔字段重建(Java 的空分支)。
 func TestV2025AlarmMaskPreservation(t *testing.T) {
 	src := &v2025rt.AlarmV2025Data{MaxAlarmLevel: 1, AlarmBitIdentify: 0x40000001, TemperatureDifferential: true}
 	raw := mustBytes(t, src)
@@ -765,18 +770,18 @@ func TestV2025AlarmMaskPreservation(t *testing.T) {
 		t.Errorf("roundtrip: got % X want % X", re, raw)
 	}
 
-	// zero mask + booleans → rebuilt (bit0 | bit24 = 0x01000001)
+	// 零掩码 + 布尔字段 → 重建(bit0 | bit24 = 0x01000001)
 	rb := mustBytes(t, &v2025rt.AlarmV2025Data{MaxAlarmLevel: 1, TemperatureDifferential: true, HydrogenLeakage: true})
 	if !bytes.Equal(rb[1:5], []byte{0x01, 0x00, 0x00, 0x01}) {
 		t.Errorf("rebuilt mask: got % X", rb[1:5])
 	}
 }
 
-// TestV2025RealtimeItemsPreserveOrder verifies the items encode path: a
-// frame whose TLV order differs from the canonical field order (alarm before
-// vehicle), a repeated type (two motor lists), custom data, and a trailing
-// signature all survive decode→re-encode byte-for-byte, and the signature's
-// SignData is refreshed to cover everything written before the 0xFF flag.
+// TestV2025RealtimeItemsPreserveOrder 验证 items 编码路径:
+// 一个 TLV 顺序与规范字段顺序不同的帧(报警在车辆之前)、
+// 一个重复类型(两个电机列表)、自定义数据,以及末尾的
+// 签名,全部逐字节一致地通过 decode→re-encode,且签名的
+// SignData 会被刷新为覆盖 0xFF 标志之前写出的全部内容。
 func TestV2025RealtimeItemsPreserveOrder(t *testing.T) {
 	bt := sampleBeanTime()
 	alarm := &v2025rt.AlarmV2025Data{MaxAlarmLevel: 1}
@@ -801,10 +806,10 @@ func TestV2025RealtimeItemsPreserveOrder(t *testing.T) {
 			t.Fatalf("encode %T: %v", body, err)
 		}
 	}
-	appendTLV(0x06, alarm) // alarm BEFORE vehicle — non-canonical order
+	appendTLV(0x06, alarm) // 报警在车辆之前:非规范顺序
 	appendTLV(0x01, vehicle)
 	appendTLV(0x02, motor1)
-	appendTLV(0x02, motor2) // repeated type
+	appendTLV(0x02, motor2) // 重复类型
 	if err := api.GetCodec(api.V2025, reflect.TypeOf(v2025rt.CustomV2025Data{})).Encode(buf, custom); err != nil {
 		t.Fatalf("custom: %v", err)
 	}
@@ -825,8 +830,8 @@ func TestV2025RealtimeItemsPreserveOrder(t *testing.T) {
 		t.Errorf("typed motor field should hold the LAST motor list, got %+v", decoded.MotorDataList)
 	}
 
-	// signature TLV = 1 flag + 1 type + 2 rlen + 2 r + 2 slen + 2 s = 10 bytes;
-	// decode-side fill covers everything written before the 0xFF flag byte
+	// 签名 TLV = 1 标志 + 1 类型 + 2 rlen + 2 r + 2 slen + 2 s = 10 字节;
+	// 解码侧填充覆盖 0xFF 标志字节之前写出的全部内容
 	wantSignData := wire[:len(wire)-10]
 	if !bytes.Equal(decoded.VehicleSignature.SignData, wantSignData) {
 		t.Errorf("decode-side SignData mismatch:\n got % X\nwant % X", decoded.VehicleSignature.SignData, wantSignData)
@@ -837,8 +842,8 @@ func TestV2025RealtimeItemsPreserveOrder(t *testing.T) {
 	}
 }
 
-// TestVehicleActivateDecodeSignData locks the decode-side SignData fill of
-// VehicleActivate: 签名信息紧接 VIN 之后开始(国标 2025 表 B.3),被签数据覆盖
+// TestVehicleActivateDecodeSignData 锁定 VehicleActivate 解码侧的 SignData 填充:
+// 签名信息紧接 VIN 之后开始(国标 2025 表 B.3),被签数据覆盖
 // 数据采集时间首字节至 VIN 末字节(含),即签名字段之前的全部 45 字节。
 func TestVehicleActivateDecodeSignData(t *testing.T) {
 	bt := sampleBeanTime()
@@ -862,19 +867,18 @@ func TestVehicleActivateDecodeSignData(t *testing.T) {
 
 	decoded := mustDecode(t, wire, api.V2025, reflect.TypeOf(gbt2025.VehicleActivate{})).(*gbt2025.VehicleActivate)
 
-	// 6B time + 16B chip + 2B keyLen + 4B key + 17B VIN = 45 bytes before the
-	// signature; SignData covers all of them (VIN 末字节含).
+	// 6B 时间 + 16B 芯片 + 2B 密钥长度 + 4B 密钥 + 17B VIN = 签名之前的 45 字节;
+	// SignData 覆盖其中全部内容(含 VIN 末字节)。
 	want := wire[:45]
 	if !bytes.Equal(decoded.Signature.SignData, want) {
 		t.Errorf("SignData mismatch:\n got % X\nwant % X", decoded.Signature.SignData, want)
 	}
 }
 
-// TestV2016RealtimeCustomData locks the 2016 user-custom-data handling:
-// TLV flag 0x80~0xFE is followed by WORD length + BYTE[N] body (国标 2016
-// 表 8/表 19) and stored raw in RealTimeData.CustomData keyed by the flag;
-// re-encode writes them back byte-faithfully (keys emitted in sorted order
-// for determinism).
+// TestV2016RealtimeCustomData 锁定 2016 用户自定义数据处理:
+// TLV 标志 0x80~0xFE 之后跟 WORD 长度 + BYTE[N] 主体(国标 2016
+// 表 8/表 19),并以标志为键原样存入 RealTimeData.CustomData;
+// 重编码按字节忠实写回(为确定性按键排序输出)。
 func TestV2016RealtimeCustomData(t *testing.T) {
 	m := &gbt2016.RealTimeData{
 		BeanTime: sampleBeanTime(),

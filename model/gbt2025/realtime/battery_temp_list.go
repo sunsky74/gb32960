@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// BatteryTempList is the V2025 battery pack temperature data list (TLV 0x08).
-// Renamed from Java BatteryPackTemperatureList.
+// BatteryTempList 是 V2025 动力蓄电池包温度数据列表(TLV 0x08)。
+// 由 Java 的 BatteryPackTemperatureList 重命名而来。
 type BatteryTempList struct {
 	BatteryPackCount int
 	Items            []BatteryTemp

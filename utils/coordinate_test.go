@@ -16,7 +16,7 @@ func TestWGS84ToGCJ02_Tiananmen(t *testing.T) {
 }
 
 func TestWGS84ToGCJ02_OutsideChina(t *testing.T) {
-	// Tokyo — should be returned unchanged
+	// 东京:应原样返回
 	c := WGS84ToGCJ02(139.6917, 35.6895)
 	if c.Longitude != 139.6917 || c.Latitude != 35.6895 {
 		t.Error("coordinates outside China should not be converted")

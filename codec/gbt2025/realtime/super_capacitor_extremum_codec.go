@@ -6,17 +6,17 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 )
 
-// SuperCapacitorExtremumCodec encodes/decodes the V2025 超级电容极值数据
-// sub-record (TLV type 0x32). Field order and converters mirror Java
-// SuperCapacitorExtremumCodec exactly:
+// SuperCapacitorExtremumCodec 编解码 V2025 超级电容极值数据
+// 子记录(TLV 类型 0x32)。字段顺序与转换器与 Java
+// SuperCapacitorExtremumCodec 完全一致:
 //
 //	VoltageMaxSubsystem(u8)   VoltageMaxBattery(u16)   MaxVoltage(u16 SuperCapExtremumVoltageConverter scale=0.001)
 //	VoltageMinSubsystem(u8)   VoltageMinBattery(u16)   MinVoltage(u16 SuperCapExtremumVoltageConverter scale=0.001)
 //	TemperatureMaxSubsystem(u8) TemperatureMaxProbe(u16) MaxTemperature(u8 TemperatureConverter offset=40)
 //	TemperatureMinSubsystem(u8) TemperatureMinProbe(u16) MinTemperature(u8 TemperatureConverter offset=40)
 //
-// Note: probe/subsystem indices are u8 + u16 (not u8 + u8 like V2016
-// ExtremumData). Mirrors Java field widths.
+// 注意:探针/子系统索引是 u8 + u16(不像 V2016
+// ExtremumData 那样是 u8 + u8)。与 Java 的字段宽度一致。
 type SuperCapacitorExtremumCodec struct{}
 
 func init() {

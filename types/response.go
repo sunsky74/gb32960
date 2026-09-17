@@ -1,11 +1,13 @@
 package types
 
-// ResponseType indicates command/response direction.
-// Values aligned with the reference Java implementation (ResponseType):
-//   SUCCESS=0x01, FAILED=0x02, VIN_DUP=0x03, VIN_NOT_EXIST=0x04,
-//   SIGN_ERR=0x05, STRUCTURE_ERR=0x06, DECODE_ERR=0x07, COMMAND=0xFE.
-// IMPORTANT: 0x01 means SUCCESS in Java (not "command"). Earlier draft
-// scrambled these semantics — see audit 2026-07-31.
+// ResponseType 表示命令/应答方向。
+// 取值与参考 Java 实现(ResponseType)对齐:
+//
+//	SUCCESS=0x01, FAILED=0x02, VIN_DUP=0x03, VIN_NOT_EXIST=0x04,
+//	SIGN_ERR=0x05, STRUCTURE_ERR=0x06, DECODE_ERR=0x07, COMMAND=0xFE.
+//
+// 重要:Java 中 0x01 表示 SUCCESS(不是 "command")。早期草稿
+// 搞乱了这些语义,见 audit 2026-07-31。
 type ResponseType byte
 
 const (
@@ -19,12 +21,15 @@ const (
 	ResponseCommand      ResponseType = 0xFE // 命令；表示数据包为命令包，而非应答包
 )
 
-// Code returns the wire format byte.
+// Code 返回线格式字节。
 func (r ResponseType) Code() byte { return byte(r) }
 
-// ResponseByCode returns the ResponseType for a given wire byte.
-// Unknown bytes default to ResponseCommand (matches Java behavior of
-// treating unrecognized response bytes as command packets on the wire).
+// ResponseByCode 返回给定线格式字节对应的 ResponseType。
+// GB/T 32960-2016 表4 只定义了 0x01/0x02/0x03/0xFE;0x04-0x07 是 V2025
+// 新增的;其余一律为预留 (reserved)。
+// audit 2026-09-17:未知字节原样返回(ResponseType(code)),
+// 而不是映射为 ResponseCommand:旧映射把畸形或未设置的帧伪装成合法命令包,
+// 并在重编码时改写了该字节。
 func ResponseByCode(code byte) ResponseType {
 	switch code {
 	case 0x01:
@@ -44,6 +49,6 @@ func ResponseByCode(code byte) ResponseType {
 	case 0xFE:
 		return ResponseCommand
 	default:
-		return ResponseCommand
+		return ResponseType(code)
 	}
 }

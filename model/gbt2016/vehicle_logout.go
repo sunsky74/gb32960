@@ -8,10 +8,10 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// VehicleLogout is the V2016 vehicle logout request (command 0x04).
-// Wire layout: BeanTime(6B) + SerialNum(2B).
-// Also reused by the V2025 decoder for the V2025 0x04 command (Java
-// getV2025Body returns the same struct).
+// VehicleLogout 是 V2016 车辆登出请求(命令 0x04)。
+// 线格式布局:BeanTime(6B) + SerialNum(2B)。
+// V2025 解码器处理 V2025 0x04 命令时也会复用它(Java
+// getV2025Body 返回同一结构体)。
 type VehicleLogout struct {
 	_         GBT2016Body
 	BeanTime  model.BeanTime

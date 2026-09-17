@@ -8,22 +8,21 @@ import (
 	"github.com/sunsky74/gb32960/types"
 )
 
-// LocationDataCodec encodes/decodes the V2016 车辆位置数据 sub-record (TLV type 0x05).
-// Wire layout mirrors Java LocationDataCodec:
+// LocationDataCodec 编解码 V2016 车辆位置数据子记录(TLV 类型 0x05)。
+// 线格式与 Java LocationDataCodec 一致:
 //
-//	StatusByte(u8) + Longitude(u32 raw, degrees × 10^6) + Latitude(u32 raw, degrees × 10^6)
+//	StatusByte(u8) + Longitude(u32 原始值,度 × 10^6) + Latitude(u32 原始值,度 × 10^6)
 //
-// StatusByte bit layout (Java LocationStatusBits):
+// StatusByte 位布局(Java LocationStatusBits):
 //
-//	bit 0 (0x01): 0=valid,     1=invalid
-//	bit 1 (0x02): 0=north lat, 1=south lat
-//	bit 2 (0x04): 0=east long, 1=west long
+//	bit 0 (0x01): 0=有效,     1=无效
+//	bit 1 (0x02): 0=北纬,     1=南纬
+//	bit 2 (0x04): 0=东经,     1=西经
 //
-// The model stores signed degrees: decode divides the raw u32 by 1e6 and
-// negates for south/west hemispheres; encode takes abs() × 1e6 and rebuilds
-// the hemisphere bits from the value sign. BYTE4 error sentinels
-// (0xFFFFFFFE/0xFFFFFFFF) pass through unscaled, matching Java
-// decodeCoordinate/encodeCoordinate.
+// 模型存储带符号的度:解码把原始 u32 除以 1e6,南/西半球取负;
+// 编码取 abs() × 1e6 并根据数值符号重建半球位。BYTE4 错误哨兵值
+// (0xFFFFFFFE/0xFFFFFFFF)不缩放直接通过,与 Java
+// decodeCoordinate/encodeCoordinate 一致。
 type LocationDataCodec struct{}
 
 func init() {
@@ -67,11 +66,11 @@ func (c *LocationDataCodec) Encode(w api.Writer, msg api.Message) error {
 	return nil
 }
 
-// decodeLocationCoordinate mirrors Java LocationDataCodec.decodeCoordinate:
-// raw / 1_000_000 with the hemisphere sign applied (east/north = positive).
-// Java divides with 6-decimal HALF_UP; integer raw / 1e6 has at most 6
-// decimals so the rounding is exact and float64 division is equivalent.
-// BYTE4 sentinels pass through unchanged.
+// decodeLocationCoordinate 与 Java LocationDataCodec.decodeCoordinate 一致:
+// raw / 1_000_000 并施加半球符号(东/北 = 正)。
+// Java 按 HALF_UP 除以 6 位小数;整数 raw / 1e6 至多有 6 位
+// 小数,因此取整是精确的,float64 除法与之等价。
+// BYTE4 哨兵值原样通过。
 func decodeLocationCoordinate(raw int64, isPositive bool) float64 {
 	if types.ErrByte4.IsInvalid(raw) {
 		return float64(raw)
@@ -83,15 +82,15 @@ func decodeLocationCoordinate(raw int64, isPositive bool) float64 {
 	return coord
 }
 
-// encodeLocationCoordinate mirrors Java LocationDataCodec.encodeCoordinate:
-// abs(coord) × 1_000_000. Java's BigDecimal arithmetic is exact and its
-// longValue() truncation is therefore lossless; float64 carries ~1e-8
-// representation error at coordinate magnitudes, so we round to nearest
-// instead — for any value with ≤6 decimals (i.e. anything decoded from the
-// wire) this recovers the exact raw integer, keeping Java interop byte-exact.
-// The sentinel check runs on the truncated value first, matching Java's
-// inInvalid(coordinate.longValue()) ordering. Go has no null: a zero-value
-// coordinate encodes as 0 (valid equator/prime-meridian point).
+// encodeLocationCoordinate 与 Java LocationDataCodec.encodeCoordinate 一致:
+// abs(coord) × 1_000_000。Java 的 BigDecimal 运算精确,其
+// longValue() 截断因此无损;float64 在坐标量级上带有约 1e-8
+// 的表示误差,所以我们改为四舍五入到最近值 —— 对任何小数位 ≤6 的
+// 数值(即任何从线格式解码出来的值),这都能恢复出精确的原始整数,
+// 保持与 Java 互操作逐字节一致。
+// 哨兵值检查先对截断后的值执行,与 Java 的
+// inInvalid(coordinate.longValue()) 顺序一致。Go 没有 null:零值
+// 坐标编码为 0(有效的赤道/本初子午线点)。
 func encodeLocationCoordinate(coord float64) int64 {
 	if types.ErrByte4.IsInvalid(int64(coord)) {
 		return int64(coord)

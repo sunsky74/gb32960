@@ -1,9 +1,9 @@
-// Package all blank-imports every codec subpackage so that importing
-// "github.com/sunsky74/gb32960/codec/all" triggers all codec init()
-// registrations. Consumers should import this package instead of
-// listing each codec subpackage separately.
+// Package all 空白导入每个 codec 子包,使导入
+// "github.com/sunsky74/gb32960/codec/all" 时触发所有 codec init()
+// 注册。消费方应导入本包,
+// 而不是逐个列出各 codec 子包。
 //
-// Usage:
+// 用法:
 //
 //	import _ "github.com/sunsky74/gb32960/codec/all"
 package all

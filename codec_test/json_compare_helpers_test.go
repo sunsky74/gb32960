@@ -7,11 +7,11 @@ import (
 	"reflect"
 )
 
-// jsonSemanticEqual compares two JSON byte slices for semantic equality.
-// Numeric values use InDelta comparison (tolerance 1e-6) to handle
-// Go float64 vs Java BigDecimal serialization differences.
-// Performs BOTH forward (Java→Go) and reverse (Go→Java) key checking
-// to catch extra fields Go might emit that Java omits.
+// jsonSemanticEqual 对两个 JSON 字节切片做语义相等比较。
+// 数值使用 InDelta 比较(容差 1e-6),以处理
+// Go float64 与 Java BigDecimal 的序列化差异。
+// 同时执行正向(Java→Go)和反向(Go→Java)键检查,
+// 以捕获 Go 可能多出而 Java 没有的字段。
 func jsonSemanticEqual(javaJSON, goJSON []byte) error {
 	var javaVal, goVal interface{}
 	if err := json.Unmarshal(javaJSON, &javaVal); err != nil {
@@ -29,7 +29,7 @@ func compareValues(java, goVal interface{}, path string) error {
 	jv := reflect.ValueOf(java)
 	gv := reflect.ValueOf(goVal)
 
-	// Handle nil
+	// 处理 nil
 	if !jv.IsValid() && !gv.IsValid() {
 		return nil
 	}
@@ -37,7 +37,7 @@ func compareValues(java, goVal interface{}, path string) error {
 		return fmt.Errorf("%s: nil mismatch (java=%v, go=%v)", path, java, goVal)
 	}
 
-	// Unwrap interface
+	// 解包 interface
 	if jv.Kind() == reflect.Interface {
 		jv = jv.Elem()
 	}
@@ -45,7 +45,7 @@ func compareValues(java, goVal interface{}, path string) error {
 		gv = gv.Elem()
 	}
 
-	// Handle numeric types with delta comparison
+	// 数值类型用差值比较处理
 	if isNumeric(jv) && isNumeric(gv) {
 		jf := toFloat64(jv)
 		gf := toFloat64(gv)
@@ -59,7 +59,7 @@ func compareValues(java, goVal interface{}, path string) error {
 		return nil
 	}
 
-	// Handle arrays/slices
+	// 处理数组/切片
 	if jv.Kind() == reflect.Slice && gv.Kind() == reflect.Slice {
 		if jv.Len() != gv.Len() {
 			return fmt.Errorf("%s: length mismatch (java=%d, go=%d)", path, jv.Len(), gv.Len())
@@ -73,9 +73,9 @@ func compareValues(java, goVal interface{}, path string) error {
 		return nil
 	}
 
-	// Handle maps/objects — bidirectional key check
+	// 处理 map/对象:双向键检查
 	if jv.Kind() == reflect.Map && gv.Kind() == reflect.Map {
-		// Forward pass: every Java key must exist in Go
+		// 正向遍历:每个 Java 键都必须存在于 Go 中
 		for _, k := range jv.MapKeys() {
 			jItem := jv.MapIndex(k).Interface()
 			gItem := gv.MapIndex(k)
@@ -87,7 +87,7 @@ func compareValues(java, goVal interface{}, path string) error {
 				return err
 			}
 		}
-		// Reverse pass: every Go key must exist in Java
+		// 反向遍历:每个 Go 键都必须存在于 Java 中
 		for _, k := range gv.MapKeys() {
 			if !jv.MapIndex(k).IsValid() {
 				return fmt.Errorf("%s.%v: unexpected key in Go output (absent in Java)", path, k)
@@ -96,7 +96,7 @@ func compareValues(java, goVal interface{}, path string) error {
 		return nil
 	}
 
-	// Fallback: exact equality
+	// 兜底:精确相等
 	if !reflect.DeepEqual(java, goVal) {
 		return fmt.Errorf("%s: value mismatch (java=%v, go=%v)", path, java, goVal)
 	}

@@ -6,12 +6,12 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 )
 
-// FuelCellEngineV2025Codec encodes/decodes the V2025 燃料电池发动机及车载氢系统
-// 数据 sub-record (TLV type 0x03). Compared to V2016 FuelCellData, ADDS
-// FuelPercentage and DCControllerTemperature, and REMOVES voltage/current/
-// consumptionRate/probe list.
+// FuelCellEngineV2025Codec 编解码 V2025 燃料电池发动机及车载氢系统
+// 数据子记录(TLV 类型 0x03)。与 V2016 FuelCellData 相比,新增了
+// FuelPercentage 与 DCControllerTemperature,并移除了电压/电流/
+// consumptionRate/探针列表。
 //
-// Field order and converters mirror Java FuelCellEngineV2025Codec exactly:
+// 字段顺序与转换器与 Java FuelCellEngineV2025Codec 完全一致:
 //
 //	HighestTempOfHydrogenSystem(u16 TempConverterEngine2025)
 //	HighestTempProbeCodeOfHydrogenSystem(u8)
@@ -19,7 +19,7 @@ import (
 //	HighestHyConSensorCode(u8)
 //	HydrogenMaxPressure(u16 MaxPressureConverter2025)
 //	HydrogenMaxPressureSensorCode(u8)
-//	HighVoltageDCState(u8 raw byte)
+//	HighVoltageDCState(u8 原始字节)
 //	FuelPercentage(u8)
 //	DCControllerTemperature(u8 ControllerTempConverter)
 type FuelCellEngineV2025Codec struct{}

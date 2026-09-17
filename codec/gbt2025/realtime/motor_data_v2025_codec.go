@@ -6,14 +6,14 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 )
 
-// MotorDataV2025Codec encodes/decodes one V2025 驱动电机 entry (TLV type 0x02
-// element). Compared to V2016 MotorData, REMOVES ControllerVoltage and
-// ControllerCurrent. Uses V2025-specific converters (MotorSpeed offset=32000,
-// MotorTorque offset=20000 with ErrByte4).
+// MotorDataV2025Codec 编解码一条 V2025 驱动电机条目(TLV 类型 0x02
+// 元素)。与 V2016 MotorData 相比,移除了 ControllerVoltage 与
+// ControllerCurrent。使用 V2025 专用转换器(MotorSpeed offset=32000,
+// MotorTorque offset=20000 并带 ErrByte4)。
 //
-// Field order and converters mirror Java MotorDataV2025Codec exactly:
+// 字段顺序与转换器与 Java MotorDataV2025Codec 完全一致:
 //
-//	MotorSeq(u8) MotorState(u8 raw byte)
+//	MotorSeq(u8) MotorState(u8 原始字节)
 //	ControllerTemperature(u8 ControllerTempConverter)
 //	MotorSpeed(u16 MotorSpeedConverter2025)
 //	MotorTorque(u32 MotorTorqueConverter2025)

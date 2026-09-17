@@ -5,10 +5,10 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 )
 
-// EngineV2025Codec encodes/decodes the V2025 发动机数据 sub-record
-// (TLV type 0x04). Compared to V2016 EngineData, V2025 has ONLY CrankshaftSpeed
-// (removes EngineState and FuelConsumptionRate). Field order mirrors Java
-// EngineDataV2025Codec exactly.
+// EngineV2025Codec 编解码 V2025 发动机数据子记录
+// (TLV 类型 0x04)。与 V2016 EngineData 相比,V2025 只有 CrankshaftSpeed
+// (移除了 EngineState 与 FuelConsumptionRate)。字段顺序与 Java
+// EngineDataV2025Codec 完全一致。
 type EngineV2025Codec struct{}
 
 func init() {

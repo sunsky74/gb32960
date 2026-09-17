@@ -6,10 +6,10 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2016/realtime"
 )
 
-// EngineDataCodec encodes/decodes the V2016 发动机数据 sub-record (TLV type 0x04).
-// Field order and converters mirror Java EngineDataCodec:
+// EngineDataCodec 编解码 V2016 发动机数据子记录(TLV 类型 0x04)。
+// 字段顺序与转换器与 Java EngineDataCodec 一致:
 //
-//	EngineState(u8 raw byte)
+//	EngineState(u8 原始字节)
 //	CrankshaftSpeed(u16)
 //	FuelConsumptionRate(u16 FuelConsumptionRateConverter)
 type EngineDataCodec struct{}

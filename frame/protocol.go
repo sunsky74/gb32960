@@ -1,9 +1,9 @@
-// Package frame contains the protocol-frame type (ProtocolMessage) and the
-// command-to-message-type dispatch (payloadType). It lives in a separate
-// package to break the circular import: ProtocolMessage references gbt2016
-// and gbt2025 types, while gbt2016/gbt2025 reference model (for BeanTime).
-// Placing the frame type here allows it to import all model subpackages
-// without creating a cycle back to model.
+// Package frame 包含协议帧类型(ProtocolMessage)以及
+// 命令到消息类型的分发(payloadType)。它位于单独的
+// 包中,以打破循环导入:ProtocolMessage 引用 gbt2016
+// 和 gbt2025 类型,而 gbt2016/gbt2025 又引用 model(用于 BeanTime)。
+// 把帧类型放在这里,使其可以导入所有 model 子包,
+// 而不会形成回到 model 的循环。
 package frame
 
 import (
@@ -18,10 +18,10 @@ import (
 	"github.com/sunsky74/gb32960/utils"
 )
 
-// ProtocolMessage represents a complete GB/T 32960 protocol frame.
+// ProtocolMessage 表示一个完整的 GB/T 32960 协议帧。
 type ProtocolMessage struct {
 	Version       api.GBTVersion
-	RequestType   any // *types.CommandV2016 or *types.CommandV2025
+	RequestType   any // *types.CommandV2016 或 *types.CommandV2025
 	ResponseType  types.ResponseType
 	VIN           string
 	Encryption    types.EncryptionType
@@ -31,10 +31,10 @@ type ProtocolMessage struct {
 	CheckCode     byte
 }
 
-// PayloadType returns the Go struct type for a (version, command) pair,
-// mirroring the reference Java implementation (getV2016Body / getV2025Body).
-// Returns nil for commands with no decodable body (Heartbeat, ClockCorrect,
-// passthrough config/control).
+// PayloadType 返回(版本,命令)对所对应的 Go 结构体类型,
+// 与参考 Java 实现(getV2016Body / getV2025Body)一致。
+// 对于没有可解码消息体的命令(Heartbeat、ClockCorrect、
+// 直通的配置/控制),返回 nil。
 func PayloadType(v api.GBTVersion, cmdCode byte) reflect.Type {
 	switch v {
 	case api.V2016:
@@ -45,6 +45,12 @@ func PayloadType(v api.GBTVersion, cmdCode byte) reflect.Type {
 			return reflect.TypeOf((*gbt2016.RealTimeData)(nil)).Elem()
 		case 0x04:
 			return reflect.TypeOf((*gbt2016.VehicleLogout)(nil)).Elem()
+		case 0x05:
+			// audit 2026-09-17:V2016 的 0x05/0x06 此前缺失,导致平台
+			// 登入/登出帧尽管已注册编解码器,仍解码出 nil 的 Payload。
+			return reflect.TypeOf((*gbt2016.PlatformLogin)(nil)).Elem()
+		case 0x06:
+			return reflect.TypeOf((*gbt2016.PlatformLogout)(nil)).Elem()
 		}
 	case api.V2025:
 		switch cmdCode {
@@ -55,9 +61,11 @@ func PayloadType(v api.GBTVersion, cmdCode byte) reflect.Type {
 		case 0x04:
 			return reflect.TypeOf((*gbt2016.VehicleLogout)(nil)).Elem()
 		case 0x05:
-			return reflect.TypeOf((*gbt2016.PlatformLogin)(nil)).Elem()
+			// audit 2026-09-17:V2025 注册的是 PlatformLoginV2025/PlatformLogoutV2025,
+			// 因此旧的 *gbt2016.Platform* 条目会让 GetCodec 返回 nil(ErrCodecNotFound)。
+			return reflect.TypeOf((*gbt2025.PlatformLoginV2025)(nil)).Elem()
 		case 0x06:
-			return reflect.TypeOf((*gbt2016.PlatformLogout)(nil)).Elem()
+			return reflect.TypeOf((*gbt2025.PlatformLogoutV2025)(nil)).Elem()
 		case 0x09:
 			return reflect.TypeOf((*gbt2025.VehicleActivate)(nil)).Elem()
 		case 0x0A:
@@ -69,22 +77,29 @@ func PayloadType(v api.GBTVersion, cmdCode byte) reflect.Type {
 	return nil
 }
 
-// CommandCode extracts the wire command byte from RequestType.
+// CommandCode 从 RequestType 中提取线上的命令字节。
 func CommandCode(rt any) (byte, bool) {
 	switch c := rt.(type) {
 	case *types.CommandV2016:
+		// audit 2026-09-17:CommandV2016ByCode 对未知字节
+		// (0x00/0xFF)返回带类型的 nil,它仍会命中此类型 switch。
+		// 解引用前必须先做防护,此前这里会 panic(可被远端触发的 DoS)。
+		if c == nil {
+			return 0, false
+		}
 		return c.Code, true
 	case *types.CommandV2025:
+		// audit 2026-09-17:参见上面的 *types.CommandV2016(带类型 nil 防护)。
+		if c == nil {
+			return 0, false
+		}
 		return c.Code, true
 	}
 	return 0, false
 }
 
-// Bytes encodes the entire protocol frame to bytes.
+// Bytes 将整个协议帧编码为字节。
 func (m *ProtocolMessage) Bytes() ([]byte, error) {
-	if m.Payload == nil {
-		return nil, errors.New("gb32960: Payload is nil, cannot encode protocol frame")
-	}
 	w := utils.NewByteWriter()
 	w.WriteString(types.Header(m.Version), 2)
 	code, ok := CommandCode(m.RequestType)
@@ -96,13 +111,35 @@ func (m *ProtocolMessage) Bytes() ([]byte, error) {
 	w.WriteString(m.VIN, 17)
 	w.WriteUint8(byte(m.Encryption))
 
-	payload, err := m.Payload.Bytes()
-	if err != nil {
-		return nil, err
+	// audit 2026-09-17:仅当命令没有消息体类型时,
+	// Payload 为 nil 才是合法的。0x07 心跳 / 0x08 校时
+	// 按 GB/T 32960 附录 B 携带 0 字节数据单元,预留命令同理。
+	// 有消息体类型的命令必须携带消息体,否则我们会发出畸形的帧。
+	var payload []byte
+	if m.Payload != nil {
+		var err error
+		payload, err = m.Payload.Bytes()
+		if err != nil {
+			return nil, err
+		}
+	} else if PayloadType(m.Version, code) != nil {
+		return nil, errors.New("gb32960: Payload is nil for a command that requires a body")
+	} else if len(m.RawBytes) > 0 {
+		// fix 2026-09-17: 2016.md 表3 L65(0xC0~0xFE 平台交换自定义数据,
+		// 含预留/未映射命令;同 2025.md 表3 L62)—— 命令没有注册消息体
+		// 类型时,数据单元必须以解码时保存的原始字节透传,否则
+		// 重编码会写出空数据单元。心跳 0x07/0x08 的 RawBytes 长度为 0,
+		// 既有 0 字节数据单元行为保持不变。
+		payload = m.RawBytes
 	}
 
 	if m.Encryption != types.EncryptionNone {
 		return nil, api.ErrEncryptionNotSupported
+	}
+
+	// audit 2026-09-17:GB/T 32960 表2 将数据单元长度上限设为 65531 字节。
+	if len(payload) > 65531 {
+		return nil, api.ErrLengthMismatch
 	}
 
 	w.WriteUint16(uint16(len(payload)))
@@ -114,7 +151,7 @@ func (m *ProtocolMessage) Bytes() ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-// DecodePayload decodes RawBytes into the Payload field.
+// DecodePayload 将 RawBytes 解码到 Payload 字段。
 func (m *ProtocolMessage) DecodePayload() error {
 	if m.RawBytes == nil {
 		return api.ErrBufferUnderflow

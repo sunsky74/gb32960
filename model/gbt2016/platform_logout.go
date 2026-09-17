@@ -8,8 +8,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// PlatformLogout is the V2016 platform logout request (command 0x06).
-// Wire layout: BeanTime(6B) + SerialNum(2B).
+// PlatformLogout 是 V2016 平台登出请求(命令 0x06)。
+// 线格式布局:BeanTime(6B) + SerialNum(2B)。
 type PlatformLogout struct {
 	_         GBT2016Body
 	BeanTime  model.BeanTime

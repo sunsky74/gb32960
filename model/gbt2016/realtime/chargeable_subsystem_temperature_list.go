@@ -7,11 +7,11 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// ChargeableSubsystemTemperatureList wraps the V2016 可充电储能装置温度 list
-// (TLV type 0x09 body). Mirrors Java ChargeableSubsystemTemperatureList which
-// extends MessageList<ChargeableSubsystemTemperature>.
+// ChargeableSubsystemTemperatureList 包装 V2016 可充电储能装置温度列表
+// (TLV 类型 0x09 消息体)。与 Java ChargeableSubsystemTemperatureList 一致,
+// 后者继承 MessageList<ChargeableSubsystemTemperature>。
 type ChargeableSubsystemTemperatureList struct {
-	TemperatureCount int // 温度数据子系统个数 (== len(Items) after decode)
+	TemperatureCount int // 温度数据子系统个数 (解码后 == len(Items))
 	Items            []ChargeableSubsystemTemperature
 }
 

@@ -16,21 +16,21 @@ import (
 	_ "github.com/sunsky74/gb32960/codec/all"
 )
 
-// TestProtocolFrame_Roundtrip exercises the full protocol frame path:
+// TestProtocolFrame_Roundtrip 演练完整的协议帧路径:
 //
-//  1. Build a frame.ProtocolMessage with a payload struct.
-//  2. Encode via frame.Bytes() — writes header, cmd, response, VIN,
-//     encryption, payload-length, payload, and BCC over bytes [2:].
-//  3. Decode via codec.ProtocolCodec.Decode — validates BCC, parses the
-//     header fields, and stores RawBytes for lazy payload decode.
-//  4. DecodePayload() looks up the message-body type via frame.PayloadType
-//     and the codec via api.GetCodec, then decodes RawBytes into Payload.
-//  5. Assert the decoded Payload struct equals the original sample.
+//  1. 用数据单元结构体构造一个 frame.ProtocolMessage。
+//  2. 通过 frame.Bytes() 编码:写出帧头、命令、应答、VIN、
+//     加密标志、数据单元长度、数据单元,以及覆盖字节 [2:] 的 BCC。
+//  3. 通过 codec.ProtocolCodec.Decode 解码:校验 BCC、解析
+//     帧头字段,并保存 RawBytes 以供延迟解码数据单元。
+//  4. DecodePayload() 通过 frame.PayloadType 查找消息体类型、
+//     通过 api.GetCodec 查找编解码器,再把 RawBytes 解码进 Payload。
+//  5. 断言解码出的 Payload 结构体等于原始样本。
 //
-// This is the Plan 2 Task E2 acceptance test: proves the frame codec,
-// BCC checksum, command→type dispatch (payloadType switch), and codec
-// registry all integrate end-to-end. Vehicles of both protocol versions
-// are covered.
+// 这是 Plan 2 Task E2 验收测试:证明帧编解码器、
+// BCC 校验码、命令→类型分发(payloadType switch)与编解码器
+// 注册表端到端协同工作。两种协议版本的车辆
+// 均有覆盖。
 func TestProtocolFrame_Roundtrip(t *testing.T) {
 	t.Run("V2016_VehicleLogin", func(t *testing.T) {
 		payload := sampleVehicleLogin()
@@ -51,7 +51,7 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 		if got := string(frameBytes[:2]); got != "##" {
 			t.Errorf("header: got %q, want ##", got)
 		}
-		const wantFrameLen = 2 + 1 + 1 + 17 + 1 + 2 + 36 + 1 // header + cmd + resp + VIN + enc + len + payload(36) + BCC
+		const wantFrameLen = 2 + 1 + 1 + 17 + 1 + 2 + 36 + 1 // 帧头 + 命令 + 应答 + VIN + 加密 + 长度 + 数据单元(36) + BCC
 		if len(frameBytes) != wantFrameLen {
 			t.Fatalf("frame length: got %d, want %d (bytes=%X)", len(frameBytes), wantFrameLen, frameBytes)
 		}
@@ -78,8 +78,8 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 			t.Errorf("PayloadLength: got %d, want payload size", df.PayloadLength)
 		}
 
-		// Payload should NOT be decoded yet — Decode only parses the frame,
-		// the caller invokes DecodePayload lazily.
+		// Payload 此时不应被解码,Decode 只解析帧,
+		// 由调用方延迟调用 DecodePayload。
 		if df.Payload != nil {
 			t.Errorf("Payload should be nil before DecodePayload, got %T", df.Payload)
 		}
@@ -160,9 +160,9 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 	})
 
 	t.Run("FrameByteStability", func(t *testing.T) {
-		// Re-encoding the decoded frame must produce byte-identical output.
-		// This catches drift in any header field, BCC computation, or
-		// payload encoding between the two codec paths.
+		// 重编码已解码的帧必须产出逐字节一致的输出。
+		// 这能捕获两条编解码路径之间任何帧头字段、BCC 计算
+		// 或数据单元编码的偏差。
 		payload := sampleVehicleLogin()
 		pm := &frame.ProtocolMessage{
 			Version:      api.V2016,
@@ -197,22 +197,22 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 	})
 
 	t.Run("EncryptionRejected", func(t *testing.T) {
-		// Encryption mode != 0x01 must surface as api.ErrEncryptionNotSupported.
-		// Plan 2 completion criterion: only pass-through (0x01) is implemented.
+		// 加密模式 != 0x01 必须暴露为 api.ErrEncryptionNotSupported。
+		// Plan 2 完成标准:只实现直通(0x01)。
 		pm := &frame.ProtocolMessage{
 			Version:      api.V2016,
 			RequestType:  types.CommandV2016ByCode(0x01),
 			ResponseType: types.ResponseCommand,
 			VIN:          "LSVAU2A37K2100001",
-			Encryption:   types.EncryptionRSA, // 0x02 — unsupported
+			Encryption:   types.EncryptionRSA, // 0x02:不支持
 			Payload:      sampleVehicleLogin(),
 		}
 		if _, err := pm.Bytes(); err != api.ErrEncryptionNotSupported {
 			t.Errorf("encode EncryptionRSA: got err=%v, want %v", err, api.ErrEncryptionNotSupported)
 		}
 
-		// On decode side: build a frame claiming RSA encryption and confirm
-		// ProtocolCodec.Decode rejects it with the same sentinel.
+		// 解码侧:构造一个声称使用 RSA 加密的帧,确认
+		// ProtocolCodec.Decode 用同一个哨兵值拒绝它。
 		handCrafted := buildFrameWithEncryption(t, api.V2016, 0x01, byte(types.EncryptionRSA), sampleVehicleLogin())
 		if _, err := codec.ProtocolCodec.Decode(utils.NewByteReader(handCrafted)); err != api.ErrEncryptionNotSupported {
 			t.Errorf("decode EncryptionRSA: got err=%v, want %v", err, api.ErrEncryptionNotSupported)
@@ -220,7 +220,7 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 	})
 
 	t.Run("BCCMismatchRejected", func(t *testing.T) {
-		// Corrupt the BCC byte (last byte) and confirm ErrBCCMismatch.
+		// 破坏 BCC 字节(最后一个字节),确认返回 ErrBCCMismatch。
 		pm := &frame.ProtocolMessage{
 			Version:      api.V2016,
 			RequestType:  types.CommandV2016ByCode(0x01),
@@ -234,23 +234,23 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 			t.Fatalf("encode failed: %v", err)
 		}
 		bad := append([]byte{}, good...)
-		bad[len(bad)-1] ^= 0xFF // flip all bits of BCC
+		bad[len(bad)-1] ^= 0xFF // 翻转 BCC 的全部位
 		if _, err := codec.ProtocolCodec.Decode(utils.NewByteReader(bad)); err != api.ErrBCCMismatch {
 			t.Errorf("decode corrupt BCC: got err=%v, want %v", err, api.ErrBCCMismatch)
 		}
 	})
 
 	t.Run("RealTimeFrame_DecodePayloadComposite", func(t *testing.T) {
-		// RealTimeData payload contains multiple TLV sub-records. DecodePayload
-		// must dispatch through the registered RealTimeDataCodec and the TLV
-		// sub-codec lookup table. This catches init-order hazards where the
-		// realtime sub-codecs are registered in a sibling package.
+		// RealTimeData 数据单元包含多个 TLV 子记录。DecodePayload
+		// 必须通过已注册的 RealTimeDataCodec 和 TLV 子编解码器
+		// 查找表进行分发。这能捕获 realtime 子编解码器在兄弟包中
+		// 注册时的初始化顺序风险。
 		vd := &gbt2016.RealTimeData{
 			BeanTime:    sampleBeanTime(),
-			VehicleData: nil, // payload can have nil sub-records
+			VehicleData: nil, // 数据单元可以包含 nil 子记录
 			EngineData:  nil,
 		}
-		// Sanity: empty RealTimeData roundtrips.
+		// 基础校验:空 RealTimeData 可往返。
 		pm := &frame.ProtocolMessage{
 			Version:      api.V2016,
 			RequestType:  types.CommandV2016ByCode(0x02),
@@ -277,8 +277,8 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 	})
 
 	t.Run("V2025_KeyExchangeFrame", func(t *testing.T) {
-		// V2025-only command 0x0B (KeyExchange). Confirms the V2025 command
-		// table dispatches to the right codec via PayloadType.
+		// V2025 专有命令 0x0B(密钥交换)。确认 V2025 命令
+		// 表经 PayloadType 分发到正确的编解码器。
 		payload := &gbt2025.KeyExchangeData{
 			Type:       0x02,
 			Length:     4,
@@ -319,9 +319,9 @@ func TestProtocolFrame_Roundtrip(t *testing.T) {
 	})
 
 	t.Run("V2025_VehicleActivateFrame", func(t *testing.T) {
-		// V2025-only command 0x09 with nested VehicleSignature sub-codec.
-		// Confirms nested codec lookup (VehicleActivate → VehicleSignature)
-		// works through the frame path.
+		// V2025 专有命令 0x09,含嵌套的 VehicleSignature 子编解码器。
+		// 确认嵌套编解码器查找(VehicleActivate → VehicleSignature)
+		// 在帧路径上正常工作。
 		payload := &gbt2025.VehicleActivate{
 			CollectTime:     sampleBeanTime(),
 			ChipID:          "CHIP2025ABC001",
@@ -397,9 +397,9 @@ func sampleVehicleLoginV2025() *gbt2025.VehicleLoginV2025 {
 	}
 }
 
-// buildFrameWithEncryption builds a protocol frame byte slice with a chosen
-// encryption byte, bypassing frame.Bytes() (which rejects non-pass-through
-// modes). Used only by EncryptionRejected to exercise the decode-side rejection.
+// buildFrameWithEncryption 用指定的加密字节构造协议帧字节切片,
+// 绕过 frame.Bytes()(它会拒绝非直通模式)。仅由 EncryptionRejected
+// 用于触发解码侧的拒绝路径。
 func buildFrameWithEncryption(t *testing.T, version api.GBTVersion, cmdCode, encByte byte, payloadFrame any) []byte {
 	t.Helper()
 
@@ -420,7 +420,7 @@ func buildFrameWithEncryption(t *testing.T, version api.GBTVersion, cmdCode, enc
 	w.WriteUint16(uint16(len(p)))
 	w.WriteBytes(p)
 
-	// BCC over bytes [2:] (everything after the 2-byte header).
+	// BCC 覆盖字节 [2:](即 2 字节帧头之后的全部内容)。
 	bccRange := w.Bytes()[2:]
 	w.WriteUint8(utils.CalcBCC(bccRange))
 	return w.Bytes()

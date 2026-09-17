@@ -8,16 +8,16 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// PlatformLogin is the V2016 platform login request (command 0x05).
-// Wire layout: BeanTime(6B) + SerialNum(2B) + Username(12B) + Password(20B) + Cipher(1B) = 41 bytes.
-// Cipher is 1 byte — matches Java PlatformLoginCodec line 40.
+// PlatformLogin 是 V2016 平台登入请求(命令 0x05)。
+// 线格式布局:BeanTime(6B) + SerialNum(2B) + Username(12B) + Password(20B) + Cipher(1B) = 41 字节。
+// Cipher 为 1 字节,与 Java PlatformLoginCodec 第 40 行一致。
 type PlatformLogin struct {
 	_         GBT2016Body
 	BeanTime  model.BeanTime
 	SerialNum int
-	Username  string // 12-byte fixed-length field
-	Password  string // 20-byte fixed-length field
-	Cipher    byte   // 1-byte encryption selector (matches Java cipherSelect.select(version(), buffer.readByte()))
+	Username  string // 12 字节定长字段
+	Password  string // 20 字节定长字段
+	Cipher    byte   // 1 字节加密选择器 (与 Java cipherSelect.select(version(), buffer.readByte()) 一致)
 }
 
 func (m *PlatformLogin) Version() api.GBTVersion { return api.V2016 }

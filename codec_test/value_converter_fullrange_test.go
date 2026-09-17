@@ -49,7 +49,7 @@ func loadExpected(t *testing.T, path string) map[string][]converterExpected {
 func TestValueConverter_FullRange_JavaGolden(t *testing.T) {
 	data := loadExpected(t, "../golden/layer_b/converter_expected.tsv")
 	if data == nil {
-		return // skipped — no Java golden data yet
+		return // 已跳过:尚无 Java 金样数据
 	}
 
 	converters := map[string]struct {
@@ -97,7 +97,10 @@ func TestValueConverter_FullRange_JavaGolden(t *testing.T) {
 }
 
 func TestValueConverter_FullRange_SelfValidation(t *testing.T) {
-	// For all 6 high-risk converters, verify roundtrip over 0~65535
+	// 对全部 6 个高风险转换器,在 0~65535 范围内校验往返。
+	// audit 2026-09-17 (H4):这些现在是硬断言:每个合法的原始
+	// 值都必须逐字节一致地通过 Decode -> Encode。不匹配时打印前 10 个
+	// 样本,超过合理上限后中止,以避免日志泛滥。
 	converters := map[string]codec.ValueConverter{
 		"BatteryVoltage":          codec.BatteryVoltageConverter,
 		"ExtremumVoltage":         codec.ExtremumVoltageConverter,
@@ -113,7 +116,7 @@ func TestValueConverter_FullRange_SelfValidation(t *testing.T) {
 			for raw := int64(0); raw <= 65535; raw++ {
 				decoded := vc.Decode(raw)
 				if vc.ErrValue.IsInvalid(raw) {
-					// Error/invalid: decoded should match raw exactly (passthrough)
+					// 异常/无效:解码结果应与原始值完全一致(直通)
 					if decoded != float64(raw) {
 						t.Errorf("%s Decode(%d): passthrough got %f, want %f", name, raw, decoded, float64(raw))
 						failures++
@@ -123,65 +126,57 @@ func TestValueConverter_FullRange_SelfValidation(t *testing.T) {
 					}
 					continue
 				}
-				// Normal value: re-encode and verify
+				// 正常值:重编码并校验逐字节一致的往返
 				reEncoded := vc.Encode(decoded)
 				if reEncoded != raw {
-					// For scale=10000, float64 rounding may cause off-by-1
-					// This is the ENTIRE POINT of Layer B — find these divergences
-					// Skip reporting for now since we don't have Java reference
+					if failures < 10 {
+						t.Errorf("%s: raw %d -> decode %v -> encode %d", name, raw, decoded, reEncoded)
+					}
 					failures++
+					if failures > 100 {
+						t.Fatalf("%s: >100 roundtrip failures (first 10 printed); aborting", name)
+					}
 				}
 			}
-			// Expect 0 failures for scale=1000 converters (integer-safe)
-			// scale=10000 may have float64 rounding issues at boundary values
-			if failures > 0 {
-				t.Logf("%s: %d roundtrip mismatches out of 65536 (may be float64 rounding at scale boundary)", name, failures)
-			} else {
-				t.Logf("%s: full range 0-65535 roundtrip PASS", name)
+			if failures == 0 {
+				t.Logf("%s: full range 0-65535 roundtrip PASS (65536 raw values)", name)
 			}
 		})
 	}
 }
 
 func TestValueConverter_FullRange_MediumRisk(t *testing.T) {
-	// Validate medium-risk converters (scale=100 or negative offset)
-	t.Run("FuelConsumptionRate", func(t *testing.T) {
-		vc := codec.FuelConsumptionRateConverter
-		failures := 0
-		for raw := int64(0); raw <= 50000; raw++ {
-			if vc.ErrValue.IsInvalid(raw) {
-				continue
+	// 在 0..50000 关键区间校验中风险转换器。
+	// audit 2026-09-17 (H4):硬断言:不匹配时打印前 10 个
+	// 样本,超过合理上限后中止。
+	cases := []struct {
+		name string
+		vc   codec.ValueConverter
+	}{
+		{"FuelConsumptionRate", codec.FuelConsumptionRateConverter},
+		{"ChargeElectric", codec.CurrentConverterChargeElectric},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			failures := 0
+			for raw := int64(0); raw <= 50000; raw++ {
+				if c.vc.ErrValue.IsInvalid(raw) {
+					continue
+				}
+				decoded := c.vc.Decode(raw)
+				if reEncoded := c.vc.Encode(decoded); reEncoded != raw {
+					if failures < 10 {
+						t.Errorf("%s: raw %d -> decode %v -> encode %d", c.name, raw, decoded, reEncoded)
+					}
+					failures++
+					if failures > 100 {
+						t.Fatalf("%s: >100 roundtrip failures (first 10 printed); aborting", c.name)
+					}
+				}
 			}
-			decoded := vc.Decode(raw)
-			reEncoded := vc.Encode(decoded)
-			if reEncoded != raw {
-				failures++
+			if failures == 0 {
+				t.Logf("%s: 0-50000 roundtrip PASS (50001 raw values)", c.name)
 			}
-		}
-		if failures > 0 {
-			t.Logf("FuelConsumptionRate: %d roundtrip mismatches out of 50001 (float64 precision with scale=100 and truncation)", failures)
-		} else {
-			t.Logf("FuelConsumptionRate: 0-50000 roundtrip PASS")
-		}
-	})
-
-	t.Run("ChargeElectric_NegativeOffset", func(t *testing.T) {
-		vc := codec.CurrentConverterChargeElectric
-		failures := 0
-		for raw := int64(0); raw <= 50000; raw++ {
-			if vc.ErrValue.IsInvalid(raw) {
-				continue
-			}
-			decoded := vc.Decode(raw)
-			reEncoded := vc.Encode(decoded)
-			if reEncoded != raw {
-				failures++
-			}
-		}
-		if failures > 0 {
-			t.Logf("ChargeElectric_NegativeOffset: %d roundtrip mismatches out of 50001 (float64 precision with offset=%+d)", failures, int(vc.Offset))
-		} else {
-			t.Logf("ChargeElectric_NegativeOffset: 0-50000 roundtrip PASS")
-		}
-	})
+		})
+	}
 }

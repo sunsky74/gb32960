@@ -7,9 +7,9 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// AlarmV2025Data is the V2025 alarm data (TLV 0x06).
-// V2025 alarm has 28 individual alarm bit fields plus fault lists and
-// common alert data. (V2016 TLV 0x06 was Extremum; V2025 0x06 is Alarm.)
+// AlarmV2025Data 是 V2025 报警数据(TLV 0x06)。
+// V2025 报警包含 28 个独立报警位字段,以及故障列表和
+// 通用报警数据。(V2016 的 TLV 0x06 是极值数据;V2025 的 0x06 是报警数据。)
 type AlarmV2025Data struct {
 	MaxAlarmLevel                   int
 	AlarmBitIdentify                int64 // 通用报警标志 (原始 32 位掩码; 编码时非 0 原样回写以保留保留位 28..31, 为 0 时从 28 个布尔重建)
@@ -55,8 +55,8 @@ type AlarmV2025Data struct {
 	CommonAlertDatas []CommonAlertData
 }
 
-// CommonAlertData is a single common alert entry: a flag bit sequence number
-// and a fault level.
+// CommonAlertData 是一条通用报警条目:标志位序号
+// 和故障等级。
 type CommonAlertData struct {
 	Seq   int
 	Level int

@@ -7,7 +7,7 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// MotorDataV2025List is the V2025 drive motor data list (TLV 0x02).
+// MotorDataV2025List 是 V2025 驱动电机数据列表(TLV 0x02)。
 type MotorDataV2025List struct {
 	MotorCount int
 	Items      []MotorDataV2025

@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// BatteryTemp is the V2025 battery pack temperature info (TLV 0x08).
-// Renamed from Java BatteryPackTemperature to match the TLV enum constant name.
+// BatteryTemp 是 V2025 动力蓄电池包温度信息(TLV 0x08)。
+// 由 Java 的 BatteryPackTemperature 重命名而来,以匹配 TLV 枚举常量名。
 type BatteryTemp struct {
 	BatteryPackSeq        int       // 动力蓄电池包号
 	TemperatureProbeCount int       // 温度探针个数

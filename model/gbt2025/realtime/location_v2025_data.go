@@ -7,17 +7,25 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// LocationV2025Data is the V2025 vehicle location data (TLV 0x05).
-// Compared to V2016 LocationData, ADDS northernFlag, eastFlag, coordinateType,
-// and convertLongitude/convertLatitude fields.
-// CoordinateType maps to Java CoordinateType: 0x01=WGS84, 0x02=GCJ02, 0x03=OTHER.
+// LocationV2025Data 是 V2025 车辆定位数据(TLV 0x05)。
+// 与 V2016 的 LocationData 相比,新增了 northernFlag、eastFlag、coordinateType
+// 和 convertLongitude/convertLatitude 字段。
+// CoordinateType 映射到 Java 的 CoordinateType:0x01=WGS84, 0x02=GCJ02, 0x03=OTHER。
 type LocationV2025Data struct {
-	Valid            bool
-	NorthernFlag     bool    // true=north latitude, false=south
-	EastFlag         bool    // true=east longitude, false=west
-	CoordinateType   byte    // CoordinateType enum
-	OriginLongitude  float64 // raw longitude × 10^6
-	OriginLatitude   float64 // raw latitude × 10^6
+	Valid          bool
+	NorthernFlag   bool // true=北纬,false=南纬
+	EastFlag       bool // true=东经,false=西经
+	CoordinateType byte // CoordinateType 枚举
+	// OriginLongitude 原始经度:单位「度」(= 线上原始值 / 10^6,西经为负;
+	// fix 2026-09-17:2025.md L320 —— 线上为「度×10^6」的 DWORD,本字段存解码后的度值,
+	// 原注释「× 10^6」有误。BYTE4 哨兵值(0xFFFFFFFE/0xFFFFFFFF)原样直通,
+	// 不带半球符号。
+	OriginLongitude float64
+	// OriginLatitude 原始纬度:单位「度」(= 线上原始值 / 10^6,南纬为负;
+	// fix 2026-09-17:2025.md L321 —— 线上为「度×10^6」的 DWORD,本字段存解码后的度值,
+	// 原注释「× 10^6」有误。BYTE4 哨兵值(0xFFFFFFFE/0xFFFFFFFF)原样直通,
+	// 不带半球符号。
+	OriginLatitude   float64
 	ConvertLongitude float64
 	ConvertLatitude  float64
 }

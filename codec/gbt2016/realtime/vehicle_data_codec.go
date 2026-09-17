@@ -9,13 +9,13 @@ import (
 	"github.com/sunsky74/gb32960/types"
 )
 
-// VehicleDataCodec encodes/decodes the V2016 整车数据 sub-record (TLV type 0x01).
-// Field order and converters mirror Java VehicleDataCodec exactly:
+// VehicleDataCodec 编解码 V2016 整车数据子记录(TLV 类型 0x01)。
+// 字段顺序与转换器与 Java VehicleDataCodec 完全一致:
 //
 //	OperatingState(u8) ChargingState(u8) OperationMode(u8)
 //	Speed(u16 SpeedConverter) Mileage(u32 MileageConverter)
 //	Voltage(u16 VoltageConverter) Current(u16 CurrentConverter2016)
-//	SOC(u8) DC(u8) GearPosition(1B via registered codec)
+//	SOC(u8) DC(u8) GearPosition(1B,经注册的编解码器)
 //	Insulance(u16) AccelerationValue(u8) BrakePedalCondition(u8)
 type VehicleDataCodec struct{}
 

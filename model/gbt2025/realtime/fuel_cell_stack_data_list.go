@@ -7,7 +7,7 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// FuelCellStackDataList is the V2025 fuel cell stack data list (TLV 0x30).
+// FuelCellStackDataList 是 V2025 燃料电池电堆数据列表(TLV 0x30)。
 type FuelCellStackDataList struct {
 	StackCount int
 	Items      []FuelCellStackData

@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// SuperCapacitorData is the V2025 super capacitor data (TLV 0x31).
-// V2025-only type.
+// SuperCapacitorData 是 V2025 超级电容数据(TLV 0x31)。
+// V2025 独有类型。
 type SuperCapacitorData struct {
 	ManagementSystemNumber int       // 超级电容管理系统号
 	TotalVoltage           float64   // V, scale=0.1

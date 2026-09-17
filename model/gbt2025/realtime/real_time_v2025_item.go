@@ -8,11 +8,11 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// RealTimeV2025Item is a holder for preserving realtime information bodies in
-// their original TLV order, supporting repeated types within a single frame.
-// In Java this does not extend GBT2025MessageBody; it implements Serializable.
-// Here it carries Version()/Bytes() to satisfy model.MessageBody so it can be
-// stored alongside other V2025 types.
+// RealTimeV2025Item 是一个容器,用于按原始 TLV 顺序保留实时信息体,
+// 支持单帧内出现重复类型。
+// 在 Java 中它不继承 GBT2025MessageBody,而是实现 Serializable。
+// 这里它带有 Version()/Bytes() 以满足 model.MessageBody,从而可以
+// 与其他 V2025 类型一起存储。
 type RealTimeV2025Item struct {
 	Type byte
 	Body model.MessageBody

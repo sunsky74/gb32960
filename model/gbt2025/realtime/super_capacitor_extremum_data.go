@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// SuperCapacitorExtremumData is the V2025 super capacitor extremum data (TLV 0x32).
-// V2025-only type.
+// SuperCapacitorExtremumData 是 V2025 超级电容极值数据(TLV 0x32)。
+// V2025 独有类型。
 type SuperCapacitorExtremumData struct {
 	VoltageMaxSubsystem     int     // 最高电压管理系统号
 	VoltageMaxBattery       int     // 最高电压超级电容单体代号

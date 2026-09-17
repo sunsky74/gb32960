@@ -13,19 +13,17 @@ import (
 	"github.com/sunsky74/gb32960/utils"
 )
 
-// realtimeCodecV2025For returns the V2025 codec registered for the given TLV
-// type, looking it up fresh on each call.
+// realtimeCodecV2025For 返回为给定 TLV 类型注册的 V2025 编解码器,
+// 每次调用时都重新查找。
 //
-// IMPORTANT (audit 2026-07-31): an earlier draft built a single dispatch
-// map at init() time, mirroring the V2016 codec/gbt2016/realtime_data_codec.go
-// pattern. That is fragile: Go does not guarantee init() order between
-// non-dependent packages, so if codec/gbt2025 inits before
-// codec/gbt2025/realtime (which is legal — neither imports the other),
-// the map ends up full of nil entries and Decode fails with
-// api.ErrUnknownTLVType on the first TLV byte. Looking up on each call
-// sidesteps the init-order hazard entirely and still uses api.GetCodec
-// (so the file stays decoupled from codec/gbt2025/realtime — the consumer's
-// blank import is what makes registrations visible by the time Decode runs).
+// 重要(audit 2026-07-31):早期草稿在 init() 时构建单个分发表,参照了
+// V2016 codec/gbt2016/realtime_data_codec.go 的模式。这很脆弱:Go 不
+// 保证非依赖包之间的 init() 顺序,因此如果 codec/gbt2025 先于
+// codec/gbt2025/realtime 初始化(这是合法的,两者互不 import),
+// 该表最终会充满 nil 条目,Decode 在第一个 TLV 字节上就会以
+// api.ErrUnknownTLVType 失败。每次调用时查找完全绕开了 init 顺序风险,
+// 并且仍然使用 api.GetCodec(因此该文件与 codec/gbt2025/realtime 保持
+// 解耦:消费方的空白导入才使注册在 Decode 运行时可见)。
 func realtimeCodecV2025For(rt types.RealTimeV2025Type) api.Codecer {
 	switch rt {
 	case types.RealTimeV2025Vehicle:
@@ -58,32 +56,32 @@ func realtimeCodecV2025For(rt types.RealTimeV2025Type) api.Codecer {
 	return nil
 }
 
-// RealTimeDataV2025Codec encodes/decodes the V2025 realtime data report
-// (command 0x02). Mirrors Java RealTimeDataV2025Codec: BeanTime via registered
-// codec, then a TLV loop reading (flag, sub-record) pairs until the buffer
-// is exhausted. Unknown flags surface as api.ErrUnknownTLVType (NOT a silent
-// break — Java swallows them, but Plan 2 mandates the error).
+// RealTimeDataV2025Codec 编码/解码 V2025 实时数据上报(命令 0x02)。
+// 与 Java RealTimeDataV2025Codec 一致:BeanTime 通过注册的编解码器处理,
+// 然后是 TLV 循环,逐一读取 (flag, sub-record) 对,直到缓冲区耗尽。
+// 未知 flag 会以 api.ErrUnknownTLVType 暴露(不是静默 break:Java 会吞掉
+// 它们,但 Plan 2 强制要求报错)。
 type RealTimeDataV2025Codec struct{}
 
 func init() {
 	api.Register[mdl.RealTimeV2025Data](api.V2025, &RealTimeDataV2025Codec{})
 }
 
-// codecV2025For returns the V2025 codec registered for the type of v, or nil.
-// Mirrors the V2016 codecFor indirection in codec/gbt2016/realtime_data_codec.go.
+// codecV2025For 返回为 v 的类型注册的 V2025 编解码器,未注册则为 nil。
+// 与 codec/gbt2016/realtime_data_codec.go 中 V2016 的 codecFor 间接层一致。
 func codecV2025For(v any) api.Codecer {
 	t := reflect.TypeOf(v)
 	return api.GetCodec(api.V2025, t)
 }
 
-// Decode mirrors Java RealTimeDataV2025Codec.decodeBuffer / decodePayload /
-// decodeByType: BeanTime via registered codec, then a TLV loop reading
-// (flag, sub-record) pairs until the buffer is exhausted.
+// Decode 与 Java RealTimeDataV2025Codec.decodeBuffer / decodePayload /
+// decodeByType 一致:BeanTime 通过注册的编解码器处理,然后是 TLV 循环,
+// 逐一读取 (flag, sub-record) 对,直到缓冲区耗尽。
 //
-// The custom range 0x80~0xFE is dispatched via types.RealTimeV2025TypeByCode
-// and decoded by the registered CustomV2025Data codec; the original flag byte
-// is preserved on the resulting CustomV2025Data.CustomKey (matches Java
-// decodeByType CUSTOM_DATA_FLAG branch).
+// 自定义范围 0x80~0xFE 通过 types.RealTimeV2025TypeByCode 分发,并由注册的
+// CustomV2025Data 编解码器解码;原始 flag 字节保留在生成的
+// CustomV2025Data.CustomKey 上(与 Java decodeByType 的 CUSTOM_DATA_FLAG
+// 分支相符)。
 func (c *RealTimeDataV2025Codec) Decode(r api.Reader) (api.Message, error) {
 	m := &mdl.RealTimeV2025Data{}
 
@@ -99,16 +97,16 @@ func (c *RealTimeDataV2025Codec) Decode(r api.Reader) (api.Message, error) {
 
 	for r.Remaining() > 0 {
 		flag := r.ReadUint8()
-		// Snapshot right after the flag read: for the signature TLV, SignData
-		// covers everything before this flag byte (mirrors Java's
-		// dumpBytes(start, readerIndex()-1-start) taken at the same point).
+		// 在读取 flag 之后立即快照:对于签名 TLV,SignData 覆盖此 flag 字节
+		// 之前的全部内容(与 Java 在同一位置取得的
+		// dumpBytes(start, readerIndex()-1-start) 一致)。
 		consumedAtFlag := r.Consumed()
 		rt, ok := types.RealTimeV2025TypeByCode(flag)
 		if !ok {
 			return nil, fmt.Errorf("%w: 0x%02X", api.ErrUnknownTLVType, flag)
 		}
 
-		// Custom range dispatches to CustomV2025Data codec; preserves raw flag.
+		// 自定义范围分发到 CustomV2025Data 编解码器;保留原始 flag。
 		if rt == types.RealTimeV2025Custom {
 			customCodec := realtimeCodecV2025For(types.RealTimeV2025Custom)
 			if customCodec == nil {
@@ -190,24 +188,23 @@ func (c *RealTimeDataV2025Codec) Decode(r api.Reader) (api.Message, error) {
 	return m, nil
 }
 
-// Encode mirrors Java RealTimeDataV2025Codec.encodeBuffer / encodePayload:
-// BeanTime via registered codec, then either the items list (when non-empty)
-// in its recorded order, or the typed fields in the canonical Java order
+// Encode 与 Java RealTimeDataV2025Codec.encodeBuffer / encodePayload 一致:
+// BeanTime 通过注册的编解码器处理,然后要么按记录顺序输出 items 列表(非空时),
+// 要么按 Java 的规范顺序输出各类型化字段
 // (Vehicle, Motor, FuelCellEngine, Engine, Location, Alarm, MinParallelVoltage,
 // BatteryTemp, FuelCellStack, SuperCapacitor, SuperCapExtremum, Custom...,
-// Signature).
+// Signature)。
 //
-// Items path: unlike Java — whose decode never adds custom data or the
-// signature to items and therefore DROPS both when re-encoding a decoded
-// frame — Go's Decode records every TLV in Items, so the items path re-emits
-// the original wire byte-for-byte: order, repeats, custom data, and signature
-// included. A VehicleSignature body gets its SignData refreshed from the
-// bytes written so far (Java does the same via buffer.dumpBytes); a
-// CustomV2025Data body writes its own CustomKey (no outer flag byte).
+// items 路径:与 Java 不同(Java 的解码从不把自定义数据或签名加入 items,
+// 因此重编码已解码帧时会丢弃两者),Go 的 Decode 把每个 TLV 都记录进 Items,
+// 所以 items 路径逐字节重发原始线上内容:顺序、重复、自定义数据和签名
+// 都包含在内。VehicleSignature 主体会用已写入的字节刷新其 SignData(Java 通过
+// buffer.dumpBytes 做同样的事);CustomV2025Data 主体写入自己的 CustomKey
+// (无外层 flag 字节)。
 //
-// api.Writer cannot report already-written bytes (needed for the SignData
-// refresh), so everything is encoded into a local *utils.ByteWriter that can,
-// then flushed once — the same pattern as protocolMessageCodec.Encode.
+// api.Writer 无法报告已写入的字节(SignData 刷新需要它们),因此所有内容都
+// 编码进一个能做到这点的本地 *utils.ByteWriter,然后一次性刷出,这与
+// protocolMessageCodec.Encode 的模式相同。
 func (c *RealTimeDataV2025Codec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.RealTimeV2025Data)
 
@@ -225,7 +222,7 @@ func (c *RealTimeDataV2025Codec) Encode(w api.Writer, msg api.Message) error {
 		for i := range m.Items {
 			item := &m.Items[i]
 			if sig, ok := item.Body.(*v2025rt.VehicleSignature); ok {
-				// Copy: ByteWriter.Bytes() aliases the live buffer
+				// 复制:ByteWriter.Bytes() 返回的是活动缓冲区的别名
 				sig.SignData = append([]byte(nil), local.Bytes()...)
 			}
 			if _, isCustom := item.Body.(*v2025rt.CustomV2025Data); !isCustom {

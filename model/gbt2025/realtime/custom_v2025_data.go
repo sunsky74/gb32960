@@ -7,7 +7,7 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// CustomV2025Data is the V2025 custom data entry (TLV 0x80~0xFE).
+// CustomV2025Data 是 V2025 自定义数据条目(TLV 0x80~0xFE)。
 type CustomV2025Data struct {
 	CustomKey byte // 自定义数据标识
 	Length    int

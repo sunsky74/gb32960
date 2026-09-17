@@ -1,4 +1,4 @@
-// Package utils provides low-level utilities for GB/T 32960 protocol handling.
+// Package utils 提供 GB/T 32960 协议处理的底层工具。
 package utils
 
 import (
@@ -8,43 +8,43 @@ import (
 	"github.com/sunsky74/gb32960/api"
 )
 
-// Compile-time interface check
+// 编译期接口检查
 var _ api.Reader = (*ByteReader)(nil)
 var _ api.Writer = (*ByteWriter)(nil)
 
-// ByteReader reads binary data from a byte slice.
-// On underflow it returns the zero value and records the error in err;
-// callers check Err() after a sequence of reads. This mirrors Java
-// ByteBuffer's BufferUnderflowException semantics without forcing every
-// Reader method to return (T, error).
+// ByteReader 从字节切片读取二进制数据。
+// 发生下溢时它返回零值并把错误记录在 err 中;
+// 调用方在一系列读取之后检查 Err()。这对应 Java
+// ByteBuffer 的 BufferUnderflowException 语义,同时无需让每个
+// Reader 方法都返回 (T, error)。
 type ByteReader struct {
 	buf []byte
 	pos int
 	err error
 }
 
-// NewByteReader creates a ByteReader from a byte slice.
+// NewByteReader 从字节切片创建一个 ByteReader。
 func NewByteReader(data []byte) *ByteReader {
 	return &ByteReader{buf: data, pos: 0}
 }
 
-// Err returns any error recorded during prior reads (typically api.ErrBufferUnderflow),
-// or nil if all reads succeeded. Codecs should call this at the end of Decode.
+// Err 返回先前读取过程中记录的错误(通常为 api.ErrBufferUnderflow),
+// 若所有读取都成功则返回 nil。编解码器应在 Decode 末尾调用它。
 func (r *ByteReader) Err() error { return r.err }
 
-// Consumed returns the bytes read so far, from position 0 to the current read
-// position. The returned slice aliases the underlying buffer — copy before
-// retaining it beyond the next read.
+// Consumed 返回从位置 0 到当前读取位置之间已读取的字节。
+// 返回的切片是底层缓冲区的别名,
+// 若要在下一次读取之后继续保留,请先复制。
 func (r *ByteReader) Consumed() []byte {
 	return r.buf[:r.pos]
 }
 
-// Remaining returns the number of unread bytes.
+// Remaining 返回未读取的字节数。
 func (r *ByteReader) Remaining() int {
 	return len(r.buf) - r.pos
 }
 
-// canRead records an underflow error if n bytes are not available.
+// canRead 在 n 个字节不可用时记录下溢错误。
 func (r *ByteReader) canRead(n int) bool {
 	if r.err != nil {
 		return false
@@ -56,9 +56,9 @@ func (r *ByteReader) canRead(n int) bool {
 	return true
 }
 
-// ReadUint8 reads a single byte. Returns 0 and records ErrBufferUnderflow on underflow.
-// Method name aligns with the ReadUint16/32 family and avoids colliding with the
-// stdlib io.ByteReader interface (which mandates a (byte, error) return).
+// ReadUint8 读取单个字节。下溢时返回 0 并记录 ErrBufferUnderflow。
+// 方法名与 ReadUint16/32 系列保持一致,并避免与
+// 标准库 io.ByteReader 接口冲突(该接口强制要求返回 (byte, error))。
 func (r *ByteReader) ReadUint8() byte {
 	if !r.canRead(1) {
 		return 0
@@ -68,7 +68,7 @@ func (r *ByteReader) ReadUint8() byte {
 	return b
 }
 
-// ReadUint16 reads a big-endian uint16. Returns 0 and records ErrBufferUnderflow on underflow.
+// ReadUint16 读取大端序 uint16。下溢时返回 0 并记录 ErrBufferUnderflow。
 func (r *ByteReader) ReadUint16() uint16 {
 	if !r.canRead(2) {
 		return 0
@@ -78,7 +78,7 @@ func (r *ByteReader) ReadUint16() uint16 {
 	return v
 }
 
-// ReadUint32 reads a big-endian uint32. Returns 0 and records ErrBufferUnderflow on underflow.
+// ReadUint32 读取大端序 uint32。下溢时返回 0 并记录 ErrBufferUnderflow。
 func (r *ByteReader) ReadUint32() uint32 {
 	if !r.canRead(4) {
 		return 0
@@ -88,23 +88,28 @@ func (r *ByteReader) ReadUint32() uint32 {
 	return v
 }
 
-// ReadString reads n bytes and returns a trimmed string.
-// Returns "" and records ErrBufferUnderflow on underflow.
+// ReadString 读取 n 个字节并返回去掉尾部填充的字符串。
+// 尾部空格和 NUL 字节(0x00)都会被去除:GB/T 32960-2016 表1
+// 将 STRING 定义为 ASCII,为空时以 0 作为终止符,而真实终端
+// (以及参考 Java 实现)用空格填充定长字段,
+// 为了互通,两者都要去除。
+// 下溢时返回 "" 并记录 ErrBufferUnderflow。
 func (r *ByteReader) ReadString(n int) string {
 	if !r.canRead(n) {
 		return ""
 	}
 	s := string(r.buf[r.pos : r.pos+n])
 	r.pos += n
-	// Trim trailing spaces (matching Java behavior)
-	for len(s) > 0 && s[len(s)-1] == ' ' {
+	// audit 2026-09-17 (L3):去除尾部空格和 NUL(表1 为空时的
+	// 0 终止符 + 为对齐 Java 的空格填充)。
+	for len(s) > 0 && (s[len(s)-1] == ' ' || s[len(s)-1] == 0) {
 		s = s[:len(s)-1]
 	}
 	return s
 }
 
-// ReadBytes reads n bytes (returns a copy).
-// Returns nil and records ErrBufferUnderflow on underflow.
+// ReadBytes 读取 n 个字节(返回副本)。
+// 下溢时返回 nil 并记录 ErrBufferUnderflow。
 func (r *ByteReader) ReadBytes(n int) []byte {
 	if !r.canRead(n) {
 		return nil
@@ -115,54 +120,57 @@ func (r *ByteReader) ReadBytes(n int) []byte {
 	return b
 }
 
-// ByteWriter builds a byte slice from binary writes.
+// ByteWriter 通过二进制写入构建字节切片。
 type ByteWriter struct {
 	buf bytes.Buffer
 }
 
-// NewByteWriter creates a new ByteWriter.
+// NewByteWriter 创建一个新的 ByteWriter。
 func NewByteWriter() *ByteWriter {
 	return &ByteWriter{}
 }
 
-// WriteUint8 writes a single byte.
-// Method name avoids colliding with the stdlib io.ByteWriter interface
-// (which mandates an error return).
+// WriteUint8 写入单个字节。
+// 方法名避免与标准库 io.ByteWriter 接口冲突
+// (该接口强制要求返回 error)。
 func (w *ByteWriter) WriteUint8(b byte) {
 	w.buf.WriteByte(b)
 }
 
-// WriteUint16 writes a big-endian uint16.
+// WriteUint16 写入大端序 uint16。
 func (w *ByteWriter) WriteUint16(v uint16) {
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, v)
 	w.buf.Write(b)
 }
 
-// WriteUint32 writes a big-endian uint32.
+// WriteUint32 写入大端序 uint32。
 func (w *ByteWriter) WriteUint32(v uint32) {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, v)
 	w.buf.Write(b)
 }
 
-// WriteString writes a fixed-length string, padding with trailing spaces if needed.
+// WriteString 写入定长字符串,必要时用尾部空格填充。
+// 填充使用空格(不是 NUL),以便与参考 Java
+// 实现和金样报文互通;ReadString 在解码时两者都接受
+// (audit 2026-09-17, L3)。
 func (w *ByteWriter) WriteString(s string, n int) {
 	b := make([]byte, n)
 	copy(b, s)
-	// Pad remaining bytes with spaces (matching Java behavior)
+	// 用空格填充剩余字节(与 Java 行为一致)
 	for i := len(s); i < n; i++ {
 		b[i] = ' '
 	}
 	w.buf.Write(b)
 }
 
-// WriteBytes writes raw bytes.
+// WriteBytes 写入原始字节。
 func (w *ByteWriter) WriteBytes(b []byte) {
 	w.buf.Write(b)
 }
 
-// Bytes returns the accumulated bytes.
+// Bytes 返回累积的字节。
 func (w *ByteWriter) Bytes() []byte {
 	return w.buf.Bytes()
 }

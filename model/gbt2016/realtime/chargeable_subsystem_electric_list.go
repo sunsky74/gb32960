@@ -7,11 +7,11 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// ChargeableSubsystemElectricList wraps the V2016 可充电储能装置电压 list
-// (TLV type 0x08 body). Mirrors Java ChargeableSubsystemElectricList which
-// extends MessageList<ChargeableSubsystemElectric>.
+// ChargeableSubsystemElectricList 包装 V2016 可充电储能装置电压列表
+// (TLV 类型 0x08 消息体)。与 Java ChargeableSubsystemElectricList 一致,
+// 后者继承 MessageList<ChargeableSubsystemElectric>。
 type ChargeableSubsystemElectricList struct {
-	ElectricCount int // 电压数据子系统个数 (== len(Items) after decode)
+	ElectricCount int // 电压数据子系统个数 (解码后 == len(Items))
 	Items         []ChargeableSubsystemElectric
 }
 

@@ -6,15 +6,15 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2016/realtime"
 )
 
-// ExtremumDataCodec encodes/decodes the V2016 极值数据 sub-record (TLV type 0x06).
-// Field order and converters mirror Java ExtremumDataCodec exactly:
+// ExtremumDataCodec 编解码 V2016 极值数据子记录(TLV 类型 0x06)。
+// 字段顺序与转换器与 Java ExtremumDataCodec 完全一致:
 //
 //	VoltageMaxSubsystem(u8)   VoltageMaxBattery(u8)   MaxVoltage(u16 ExtremumVoltageConverter)
 //	VoltageMinSubsystem(u8)   VoltageMinBattery(u8)   MinVoltage(u16 ExtremumVoltageConverter)
 //	TemperatureMaxSubsystem(u8) TemperatureMaxProbe(u8) MaxTemperature(u8 TemperatureConverter)
 //	TemperatureMinSubsystem(u8) TemperatureMinProbe(u8) MinTemperature(u8 TemperatureConverter)
 //
-// Temperature raw is u8 with ErrByte1 sentinels (handled by TemperatureConverter).
+// 温度为 u8 原始值,带 ErrByte1 哨兵值(由 TemperatureConverter 处理)。
 type ExtremumDataCodec struct{}
 
 func init() {

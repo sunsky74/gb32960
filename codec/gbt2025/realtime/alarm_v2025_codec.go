@@ -1,27 +1,29 @@
 package realtime
 
 import (
+	"fmt"
+
 	"github.com/sunsky74/gb32960/api"
 	mdl "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 )
 
-// AlarmV2025Codec encodes/decodes the V2025 报警数据 sub-record (TLV type 0x06).
-// V2025 alarm has 28 individual alarm bits packed in a u32 mask, plus 4 fault
-// lists (battery/motor/engine/other) of u32 codes, plus a CommonAlertData list
-// of (seq u8, level u8) pairs. (V2016 TLV 0x06 was Extremum; V2025 0x06 is Alarm.)
+// AlarmV2025Codec 编解码 V2025 报警数据子记录(TLV 类型 0x06)。
+// V2025 报警有 28 个独立报警位打包在 u32 掩码中,外加 4 个 u32 码故障
+// 列表(电池/电机/发动机/其他),外加一个由 (seq u8, level u8) 对组成的
+// CommonAlertData 列表。(V2016 TLV 0x06 是极值;V2025 0x06 是报警。)
 //
-// Wire layout mirrors Java AlarmV2025Codec exactly:
+// 线格式与 Java AlarmV2025Codec 完全一致:
 //
 //	MaxAlarmLevel(u8)
 //	AlarmBitIdentify(u32 → int64)
-//	  → 28 boolean alarm bits parsed LSB-first (bits 0..27)
-//	BatteryFaultNum(u8) + BatteryFaultNum × u32   (only when 0 < n <= 253)
+//	  → 28 个布尔报警位,按 LSB 优先解析(位 0..27)
+//	BatteryFaultNum(u8) + BatteryFaultNum × u32   (仅在 0 < n <= 253 时)
 //	MotorFaultNum(u8)   + MotorFaultNum   × u32
 //	EngineFaultNum(u8)  + EngineFaultNum  × u32
 //	OtherFaultNum(u8)   + OtherFaultNum   × u32
 //	CommonAlertNum(u8)  + CommonAlertNum  × (u8 seq + u8 level)
 //
-// Bit indices match Java AlarmBits (audit 2026-07-31):
+// 位索引与 Java AlarmBits 一致(audit 2026-07-31):
 //
 //	0 TemperatureDifferential     10 BatteryConsistencyPoor      20 DriveMotorOverCurrent
 //	1 BatteryHighTemperature      11 Insulation                  21 SuperCapacitorOverTemp
@@ -35,8 +37,8 @@ import (
 //	9 DeviceTypeDontMatch         19 DriveMotorOverSpeed
 type AlarmV2025Codec struct{}
 
-// 28-bit indices (LSB-first within the 32-bit wire mask). Shared with V2016
-// AlarmDataCodec for bits 0..18; bits 19..27 are V2025-only additions.
+// 28 位索引(在 32 位线格式掩码内按 LSB 优先)。位 0..18 与 V2016
+// AlarmDataCodec 共享;位 19..27 是 V2025 新增。
 const (
 	v2025BitTemperatureDifferential         = 0
 	v2025BitBatteryHighTemperature          = 1
@@ -160,54 +162,82 @@ func (c *AlarmV2025Codec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.AlarmV2025Data)
 	w.WriteUint8(byte(m.MaxAlarmLevel))
 
-	// Java: getAlarmBitIdentify() == null ? buildAlarmBitIdentify(msg) : the
-	// stored mask — a decoded mask is written back as-is so reserved bits
-	// 28..31 survive the roundtrip. Go has no null: the zero value plays it
-	// (a decoded 0 mask implies all-false booleans, so rebuilding yields the
-	// same 0 and the two paths never disagree on wire bytes).
+	// Java: getAlarmBitIdentify() == null ? buildAlarmBitIdentify(msg) : 存储的
+	// 掩码;已解码的掩码原样写回,使预留位
+	// 28..31 能在往返后存活。Go 没有 null:零值承担该角色
+	// (解码出的 0 掩码意味着所有布尔均为 false,因此重建得到
+	// 相同的 0,两条路径在线格式字节上从不分歧)。
 	mask := m.AlarmBitIdentify
 	if mask == 0 {
 		mask = buildV2025AlarmBitIdentify(m)
 	}
 	w.WriteUint32(uint32(mask))
 
-	writeV2025Faults(w, m.BatteryFaultNum, m.BatteryFaultDatas)
-	writeV2025Faults(w, m.MotorFaultNum, m.MotorFaultDatas)
-	writeV2025Faults(w, m.EngineFaultNum, m.EngineFaultDatas)
-	writeV2025Faults(w, m.OtherFaultNum, m.OtherFaultDatas)
+	// fix 2026-09-17: GB/T 32960.3-2025 表23(L342~L349) —— 四个故障总数 N1~N4
+	// 与各自代码列表长度必须一致(普通计数 1~253)或列表为空(0/0xFE/0xFF)。
+	if err := writeV2025Faults(w, m.BatteryFaultNum, m.BatteryFaultDatas); err != nil {
+		return err
+	}
+	if err := writeV2025Faults(w, m.MotorFaultNum, m.MotorFaultDatas); err != nil {
+		return err
+	}
+	if err := writeV2025Faults(w, m.EngineFaultNum, m.EngineFaultDatas); err != nil {
+		return err
+	}
+	if err := writeV2025Faults(w, m.OtherFaultNum, m.OtherFaultDatas); err != nil {
+		return err
+	}
 
 	commonCount := m.CommonAlertNum
-	w.WriteUint8(byte(commonCount))
-	if isValidV2025Count(commonCount) && len(m.CommonAlertDatas) > 0 {
-		for i := range m.CommonAlertDatas {
-			w.WriteUint8(byte(m.CommonAlertDatas[i].Seq))
-			w.WriteUint8(byte(m.CommonAlertDatas[i].Level))
+	// fix 2026-09-17: 表23(L355~L356) —— 通用报警故障总数 N5 与等级列表长度必须
+	// 一致(普通计数)或列表为空(0/哨兵);旧代码在计数与列表不一致时静默写出
+	// 全部条目,产生畸形帧。
+	if isValidV2025Count(commonCount) {
+		if len(m.CommonAlertDatas) != commonCount {
+			return fmt.Errorf("gb32960: common alert count %d does not match list length %d", commonCount, len(m.CommonAlertDatas))
 		}
+	} else if len(m.CommonAlertDatas) != 0 {
+		return fmt.Errorf("gb32960: common alert count %d (0 or sentinel) cannot carry %d entries", commonCount, len(m.CommonAlertDatas))
+	}
+	w.WriteUint8(byte(commonCount))
+	for i := range m.CommonAlertDatas {
+		w.WriteUint8(byte(m.CommonAlertDatas[i].Seq))
+		w.WriteUint8(byte(m.CommonAlertDatas[i].Level))
 	}
 	return nil
 }
 
-// isValidV2025Count mirrors Java AlarmV2025Codec.isValidCount:
-// count must be in (0, 253] for the list body to be read/written.
+// isValidV2025Count 与 Java AlarmV2025Codec.isValidCount 一致:
+// 计数必须处于 (0, 253] 才会读写列表主体。
 func isValidV2025Count(count int) bool { return count > 0 && count <= 253 }
 
-// writeV2025Faults mirrors Java AlarmV2025Codec.writeFaults: write the count
-// byte then each fault as u32 (only when count is in valid range).
-func writeV2025Faults(w api.Writer, count int, faults []int64) {
-	w.WriteUint8(byte(count))
-	if isValidV2025Count(count) && len(faults) > 0 {
-		for _, code := range faults {
-			w.WriteUint32(uint32(code))
+// writeV2025Faults 与 Java AlarmV2025Codec.writeFaults 一致:先写计数
+// 字节,再把每个故障写为 u32。
+//
+// fix 2026-09-17: 表23(L342~L349) —— 计数与代码列表长度的编码校验:普通
+// 计数(1~253)必须与列表长度完全一致;0 或哨兵(0xFE/0xFF)计数不携带
+// 任何代码。旧代码在计数与列表不一致时静默写出全部条目,产生畸形帧。
+func writeV2025Faults(w api.Writer, count int, faults []int64) error {
+	if isValidV2025Count(count) {
+		if len(faults) != count {
+			return fmt.Errorf("gb32960: alarm fault count %d does not match fault list length %d", count, len(faults))
 		}
+	} else if len(faults) != 0 {
+		return fmt.Errorf("gb32960: alarm fault count %d (0 or sentinel) cannot carry %d fault codes", count, len(faults))
 	}
+	w.WriteUint8(byte(count))
+	for _, code := range faults {
+		w.WriteUint32(uint32(code))
+	}
+	return nil
 }
 
 func isBitSetV2025(mask int64, bit int) bool { return mask&(1<<bit) != 0 }
 
-// buildV2025AlarmBitIdentify packs the 28 boolean fields back into the 32-bit
-// wire mask, matching Java AlarmV2025Codec.buildAlarmBitIdentify. Used when
-// AlarmBitIdentify is unset (Java: null); a set mask is passed through by
-// Encode so reserved bits 28..31 are preserved.
+// buildV2025AlarmBitIdentify 把 28 个布尔字段打包回 32 位
+// 线格式掩码,与 Java AlarmV2025Codec.buildAlarmBitIdentify 一致。当
+// AlarmBitIdentify 未设置(Java: null)时使用;已设置的掩码由
+// Encode 直通,从而保留预留位 28..31。
 func buildV2025AlarmBitIdentify(m *mdl.AlarmV2025Data) int64 {
 	var mask int64
 	set := func(bit int, b bool) {

@@ -1,8 +1,8 @@
-// Package api defines shared interfaces and types for the GB/T 32960 protocol library.
-// It breaks the circular dependency between model and codec packages.
+// Package api 定义 GB/T 32960 协议库的共享接口与类型。
+// 它打破了 model 与 codec 包之间的循环依赖。
 package api
 
-// GBTVersion represents the protocol version.
+// GBTVersion 表示协议版本。
 type GBTVersion int
 
 const (
@@ -10,21 +10,21 @@ const (
 	V2025 GBTVersion = 2025
 )
 
-// Message is the marker interface for all protocol message types.
-// Every model struct (VehicleLogin, RealTimeData, etc.) satisfies this interface.
+// Message 是所有协议消息类型的标记接口。
+// 每个 model 结构体(VehicleLogin、RealTimeData 等)都满足此接口。
 type Message interface{}
 
-// Reader abstracts byte reading for decoding operations.
-// Methods return only the value (no error) for ergonomic chaining.
-// Implementations MUST bounds-check and, on underflow, return the zero
-// value and record the error retrievable via Err(). Codecs should call
-// r.Err() at the end of Decode and convert it to api.ErrBufferUnderflow.
-// (Audit 2026-07-31: earlier draft panicked on underflow; Java ByteBuffer
-// throws a recoverable BufferUnderflowException instead.)
+// Reader 抽象了解码操作的字节读取。
+// 方法只返回值(不返回 error),以便于链式调用。
+// 实现必须做边界检查,并在下溢时返回零值,
+// 同时记录可通过 Err() 获取的错误。编解码器应在
+// Decode 末尾调用 r.Err() 并将其转换为 api.ErrBufferUnderflow。
+// (Audit 2026-07-31:早期草稿在下溢时 panic;Java ByteBuffer
+// 则抛出可恢复的 BufferUnderflowException。)
 //
-// Method names use ReadUint8 (not ReadByte) to avoid colliding with the
-// standard io.ByteReader interface, which mandates a (byte, error) return.
-// Our no-error signature is intentional and matches the ReadUint16/32 family.
+// 方法名使用 ReadUint8(而非 ReadByte),以避免与
+// 标准库 io.ByteReader 接口冲突,该接口强制要求返回 (byte, error)。
+// 我们这种不带 error 的签名是有意为之,与 ReadUint16/32 系列保持一致。
 type Reader interface {
 	Remaining() int
 	ReadUint8() byte
@@ -34,17 +34,17 @@ type Reader interface {
 	ReadBytes(n int) []byte
 	Err() error
 
-	// Consumed returns the bytes read so far, from position 0 to the current
-	// read position. The returned slice ALIASES the underlying buffer — copy
-	// before retaining. Used by signature-bearing codecs to capture SignData
-	// (the wire bytes preceding the signature) during decode, mirroring Java
-	// ByteBuffer's readerIndex-based dumpBytes.
+	// Consumed 返回从位置 0 到当前读取位置之间已读取的字节。
+	// 返回的切片是底层缓冲区的别名,如需保留请先复制。
+	// 带签名的编解码器在解码时用它捕获 SignData
+	// (签名之前的线格式字节),对应 Java
+	// ByteBuffer 基于 readerIndex 的 dumpBytes。
 	Consumed() []byte
 }
 
-// Writer abstracts byte writing for encoding operations.
-// Method names use WriteUint8 (not WriteByte) to avoid colliding with the
-// standard io.ByteWriter interface, which mandates an error return.
+// Writer 抽象了编码操作的字节写入。
+// 方法名使用 WriteUint8(而非 WriteByte),以避免与
+// 标准库 io.ByteWriter 接口冲突,该接口强制要求返回 error。
 type Writer interface {
 	WriteUint8(b byte)
 	WriteUint16(v uint16)
@@ -53,8 +53,8 @@ type Writer interface {
 	WriteBytes(b []byte)
 }
 
-// Codecer is the interface for message body codecs.
-// Each message type has a corresponding Codecer implementation.
+// Codecer 是消息体编解码器的接口。
+// 每个消息类型都有一个对应的 Codecer 实现。
 type Codecer interface {
 	Decode(r Reader) (Message, error)
 	Encode(w Writer, msg Message) error

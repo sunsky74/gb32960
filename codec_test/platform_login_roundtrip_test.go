@@ -10,33 +10,33 @@ import (
 	"github.com/sunsky74/gb32960/model/gbt2016"
 	"github.com/sunsky74/gb32960/utils"
 
-	// Blank-import to trigger codec init() registration.
+	// 空导入以触发编解码器 init() 注册。
 	_ "github.com/sunsky74/gb32960/codec/gbt2016"
 )
 
-// TestPlatformLogin_Roundtrip is the Gate-0 acceptance test:
-// encode → decode → re-encode must be byte-identical, and all
-// fields must survive the round trip.
+// TestPlatformLogin_Roundtrip 是 Gate-0 验收测试:
+// 编码 → 解码 → 重编码必须逐字节一致,且所有
+// 字段都必须完整通过往返。
 func TestPlatformLogin_Roundtrip(t *testing.T) {
 	original := &gbt2016.PlatformLogin{
 		BeanTime:  model.BeanTime{Year: 26, Month: 7, Day: 31, Hour: 10, Minute: 30, Second: 0},
 		SerialNum: 1,
 		Username:  "admin",
 		Password:  "secret123",
-		Cipher:    0x01, // 0x01 = NONE pass-through (matches Java NonCipher default)
+		Cipher:    0x01, // 0x01 = NONE 直通(与 Java NonCipher 默认值一致)
 	}
 
-	// Encode via the registered codec (delegates to modelutil.DefaultBytes).
+	// 通过注册的编解码器编码(委托给 modelutil.DefaultBytes)。
 	encoded, err := original.Bytes()
 	if err != nil {
 		t.Fatalf("encode failed: %v", err)
 	}
-	const wantLen = 6 + 2 + 12 + 20 + 1 // BeanTime + SerialNum + Username + Password + Cipher
+	const wantLen = 6 + 2 + 12 + 20 + 1 // BeanTime + SerialNum + Username + Password + Cipher(线格式各字段长度)
 	if len(encoded) != wantLen {
 		t.Fatalf("encoded length: got %d, want %d (bytes=%X)", len(encoded), wantLen, encoded)
 	}
 
-	// Decode via the codec looked up by reflect type.
+	// 通过反射类型查找的编解码器解码。
 	codec := api.GetCodec(api.V2016, reflect.TypeOf((*gbt2016.PlatformLogin)(nil)).Elem())
 	if codec == nil {
 		t.Fatal("codec not found for PlatformLogin")
@@ -47,7 +47,7 @@ func TestPlatformLogin_Roundtrip(t *testing.T) {
 	}
 	result := decoded.(*gbt2016.PlatformLogin)
 
-	// Verify fields.
+	// 校验字段。
 	if result.BeanTime != original.BeanTime {
 		t.Errorf("BeanTime mismatch: got %v, want %v", result.BeanTime, original.BeanTime)
 	}
@@ -64,7 +64,7 @@ func TestPlatformLogin_Roundtrip(t *testing.T) {
 		t.Errorf("Cipher mismatch: got 0x%02X, want 0x%02X", result.Cipher, original.Cipher)
 	}
 
-	// Re-encode and verify byte stability.
+	// 重编码并校验字节稳定性。
 	reEncoded, err := result.Bytes()
 	if err != nil {
 		t.Fatalf("re-encode failed: %v", err)

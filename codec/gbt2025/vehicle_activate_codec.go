@@ -1,6 +1,7 @@
 package gbt2025
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -10,22 +11,22 @@ import (
 	v2025rt "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 )
 
-// VehicleActivateCodec encodes/decodes the V2025 vehicle activation request
-// (command 0x09). Wire layout mirrors Java VehicleActivateCodec:
+// VehicleActivateCodec 编码/解码 V2025 车辆激活请求(命令 0x09)。
+// 线格式与 Java VehicleActivateCodec 一致:
 //
 //	CollectTime(BeanTime 6B) + ChipID(16B) + PublicKeyLength(u16)
 //	+ PublicKey[PublicKeyLength bytes] + VIN(17B) + VehicleSignature(sub-codec)
 //
-// The trailing VehicleSignature is decoded via the registered V2025 codec
-// (see codec/gbt2025/realtime/vehicle_signature_codec.go). Consumers must
-// blank-import that package for the lookup to succeed.
+// 末尾的 VehicleSignature 通过注册的 V2025 编解码器解码
+// (见 codec/gbt2025/realtime/vehicle_signature_codec.go)。消费方必须
+// 空白导入该包,查找才能成功。
 type VehicleActivateCodec struct{}
 
 func init() {
 	api.Register[mdl.VehicleActivate](api.V2025, &VehicleActivateCodec{})
 }
 
-// Decode mirrors Java VehicleActivateCodec.decodeBuffer.
+// Decode 与 Java VehicleActivateCodec.decodeBuffer 一致。
 func (c *VehicleActivateCodec) Decode(r api.Reader) (api.Message, error) {
 	m := &mdl.VehicleActivate{}
 
@@ -69,14 +70,27 @@ func (c *VehicleActivateCodec) Decode(r api.Reader) (api.Message, error) {
 	return m, nil
 }
 
-// Encode mirrors Java VehicleActivateCodec.encodeBuffer.
+// Encode 与 Java VehicleActivateCodec.encodeBuffer 一致。
 //
-// Java writes ChipID via writeString(StringUtils.trim(...), 16) (fixed 16B)
-// but VIN via writeString(msg.getVin()) (variable length). To keep roundtrip
-// byte-stable with the decode side (which reads VIN as 17B), we write VIN
-// as a fixed 17-byte string.
+// Java 通过 writeString(StringUtils.trim(...), 16) 写入 ChipID(固定 16B),
+// 但通过 writeString(msg.getVin()) 写入 VIN(变长)。为使与解码侧(按 17B
+// 读取 VIN)的往返保持逐字节稳定,我们将 VIN 写成固定 17 字节的字符串。
 func (c *VehicleActivateCodec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.VehicleActivate)
+
+	// fix 2026-09-17: spec 2025.md L847-854(表B.3)—— 芯片ID 16 字节
+	// (不足由空格补齐);公钥长度 N(2B)必须等于实际公钥字节数;VIN 17 字节。
+	// 芯片ID/VIN 超长会被 WriteString 静默截断;公钥长度不符会使
+	// VIN/签名整体错位。写入任何内容之前先校验。
+	if len(m.ChipID) > 16 {
+		return fmt.Errorf("gb32960: activate chip ID %q longer than 16 bytes", m.ChipID)
+	}
+	if len(m.PublicKey) != m.PublicKeyLength {
+		return fmt.Errorf("gb32960: activate public key length %d does not match declared length %d", len(m.PublicKey), m.PublicKeyLength)
+	}
+	if len(m.VIN) > 17 {
+		return fmt.Errorf("gb32960: activate VIN %q longer than 17 bytes", m.VIN)
+	}
 
 	btCodec := api.GetCodec(api.V2016, reflect.TypeOf((*model.BeanTime)(nil)).Elem())
 	if btCodec == nil {

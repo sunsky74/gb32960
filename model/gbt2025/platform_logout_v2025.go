@@ -8,8 +8,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// PlatformLogoutV2025 is the V2025 platform logout request (command 0x06).
-// V2025 reuses the V2016 PlatformLogout wire format (reference implementation).
+// PlatformLogoutV2025 是 V2025 平台登出请求(命令 0x06)。
+// V2025 复用 V2016 PlatformLogout 的线格式(参考实现)。
 type PlatformLogoutV2025 struct {
 	_         GBT2025Body
 	BeanTime  model.BeanTime

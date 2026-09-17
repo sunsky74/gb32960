@@ -66,7 +66,7 @@ func TestLayerA_RealWorldPackets(t *testing.T) {
 			}
 			rt := pm.Payload.(*mdl.RealTimeData)
 
-			// VehicleData
+			// 车辆数据
 			if rt.VehicleData == nil {
 				t.Fatal("VehicleData is nil")
 			}
@@ -79,18 +79,18 @@ func TestLayerA_RealWorldPackets(t *testing.T) {
 			t.Logf("VehicleData: speed=%.2f, mileage=%.0f, voltage=%.2f, current=%.2f, soc=%d",
 				vd.Speed, vd.Mileage, vd.Voltage, vd.Current, vd.SOC)
 
-			// LocationData (model stores signed degrees; codec applies ÷1e6
-			// and hemisphere sign, mirroring Java LocationDataCodec)
+			// 位置数据(model 存储带符号的角度值;编解码器应用 ÷1e6
+			// 与半球符号,与 Java LocationDataCodec 保持一致)
 			if rt.LocationData == nil {
 				t.Fatal("LocationData is nil")
 			}
 			assertFloat(t, "longitude", rt.LocationData.Longitude, tt.expect.longitude, 0.0001)
 			assertFloat(t, "latitude", rt.LocationData.Latitude, tt.expect.latitude, 0.0001)
-			// Note: Valid=true means positioning IS valid (status bit0 == 0)
+			// 注意:Valid=true 表示定位有效(状态位 bit0 == 0)
 			t.Logf("LocationData: lon=%.6f, lat=%.6f, valid=%v",
 				rt.LocationData.Longitude, rt.LocationData.Latitude, rt.LocationData.Valid)
 
-			// MotorDataList
+			// 电机数据列表
 			if rt.MotorDataList == nil {
 				t.Fatal("MotorDataList is nil")
 			}
@@ -98,7 +98,7 @@ func TestLayerA_RealWorldPackets(t *testing.T) {
 			assertInt(t, "motorItems", len(rt.MotorDataList.Items), tt.expect.motorCount)
 			t.Logf("MotorDataList: count=%d", rt.MotorDataList.Count)
 
-			// ChargeableSubsystemElectricList
+			// 可充电储能子系统电流列表
 			if rt.ChargeableSubsystemElectricList == nil {
 				t.Fatal("ChargeableSubsystemElectricList is nil")
 			}
@@ -113,7 +113,7 @@ func TestLayerA_RealWorldPackets(t *testing.T) {
 					e0.BatteryCount, e0.BatteryVoltages[0], e0.BatteryVoltages[e0.BatteryCount-1])
 			}
 
-			// ChargeableSubsystemTemperatureList
+			// 可充电储能子系统温度列表
 			if rt.ChargeableSubsystemTemperatureList == nil {
 				t.Fatal("ChargeableSubsystemTemperatureList is nil")
 			}
@@ -127,7 +127,7 @@ func TestLayerA_RealWorldPackets(t *testing.T) {
 					t0.ProbeTemperatures[0], t0.ProbeTemperatures[t0.TemperatureProbeCount-1])
 			}
 
-			// ExtremumData
+			// 极值数据
 			if rt.ExtremumData == nil {
 				t.Fatal("ExtremumData is nil")
 			}
@@ -176,7 +176,7 @@ func assertInt(t *testing.T, name string, got, want int) {
 	}
 }
 
-// TestLayerA_V2025 validates a V2025 reissue production packet against known Java output.
+// TestLayerA_V2025 用已知的 Java 输出校验一个 V2025 重新签发的生产报文。
 func TestLayerA_V2025(t *testing.T) {
 	file := "../golden/layer_a/prod_reissue_v2025_01.hex"
 	hexData, err := os.ReadFile(file)
@@ -207,7 +207,7 @@ func TestLayerA_V2025(t *testing.T) {
 	t.Log("✅ Layer A V2025: production reissue packet decoded successfully")
 }
 
-// TestLayerA_VehicleLogin validates V2016 vehicle login production packet.
+// TestLayerA_VehicleLogin 校验 V2016 车辆登入生产报文。
 func TestLayerA_VehicleLogin(t *testing.T) {
 	file := "../golden/layer_a/prod_login_v2016_01.hex"
 	hexData, err := os.ReadFile(file)

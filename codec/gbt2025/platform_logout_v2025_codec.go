@@ -1,4 +1,4 @@
-// Package gbt2025 contains GB/T 32960.3-2025 message body codecs.
+// Package gbt2025 包含 GB/T 32960.3-2025 消息体编解码器。
 package gbt2025
 
 import (
@@ -9,17 +9,17 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2025"
 )
 
-// PlatformLogoutV2025Codec encodes/decodes the V2025 platform logout request
-// (command 0x06). Wire layout: BeanTime(6B) + SerialNum(2B).
-// BeanTime is shared with V2016; we look it up under V2016 (no V2025 BeanTime
-// codec is registered — BeanTime has no version-specific behavior).
+// PlatformLogoutV2025Codec 编码/解码 V2025 平台登出请求(命令 0x06)。
+// 线格式:BeanTime(6B) + SerialNum(2B)。
+// BeanTime 与 V2016 共用;我们按 V2016 查找(未注册 V2025 的 BeanTime
+// 编解码器:BeanTime 没有版本相关的行为)。
 type PlatformLogoutV2025Codec struct{}
 
 func init() {
 	api.Register[mdl.PlatformLogoutV2025](api.V2025, &PlatformLogoutV2025Codec{})
 }
 
-// Decode mirrors Java PlatformLogoutV2025Codec.decodeBuffer.
+// Decode 与 Java PlatformLogoutV2025Codec.decodeBuffer 一致。
 func (c *PlatformLogoutV2025Codec) Decode(r api.Reader) (api.Message, error) {
 	m := &mdl.PlatformLogoutV2025{}
 
@@ -41,7 +41,7 @@ func (c *PlatformLogoutV2025Codec) Decode(r api.Reader) (api.Message, error) {
 	return m, nil
 }
 
-// Encode mirrors Java PlatformLogoutV2025Codec.encodeBuffer.
+// Encode 与 Java PlatformLogoutV2025Codec.encodeBuffer 一致。
 func (c *PlatformLogoutV2025Codec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.PlatformLogoutV2025)
 

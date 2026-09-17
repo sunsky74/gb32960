@@ -8,16 +8,16 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2016"
 )
 
-// VehicleLogoutCodec encodes/decodes the V2016 vehicle logout request (command 0x04).
-// Wire layout: BeanTime(6B) + SerialNum(2B).
-// Also reused by the V2025 decoder for the V2025 0x04 command.
+// VehicleLogoutCodec 编解码 V2016 车辆登出请求(命令 0x04)。
+// 线格式布局:BeanTime(6B) + SerialNum(2B)。
+// V2025 解码器处理 V2025 0x04 命令时也会复用它。
 type VehicleLogoutCodec struct{}
 
 func init() {
 	api.Register[mdl.VehicleLogout](api.V2016, &VehicleLogoutCodec{})
 }
 
-// Decode mirrors Java VehicleLogoutCodec.decodeBuffer.
+// Decode 镜像 Java VehicleLogoutCodec.decodeBuffer。
 func (c *VehicleLogoutCodec) Decode(r api.Reader) (api.Message, error) {
 	m := &mdl.VehicleLogout{}
 
@@ -39,7 +39,7 @@ func (c *VehicleLogoutCodec) Decode(r api.Reader) (api.Message, error) {
 	return m, nil
 }
 
-// Encode mirrors Java VehicleLogoutCodec.encodeBuffer.
+// Encode 镜像 Java VehicleLogoutCodec.encodeBuffer。
 func (c *VehicleLogoutCodec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.VehicleLogout)
 

@@ -1,10 +1,10 @@
-// Package modelutil provides the DefaultBytes helper used by all message body
-// structs to encode themselves via the registered codec.
+// Package modelutil 提供 DefaultBytes 辅助函数,供所有消息体结构体通过
+// 注册的编解码器对自身编码。
 //
-// This lives in a separate package (not model/) to break the circular import:
-// model/gbt2016 and model/gbt2025 need DefaultBytes, but model/ itself must
-// not be imported by them when model/ references gbt2016/gbt2025 types
-// (via frame.ProtocolMessage).
+// 它独立成包(而不是放在 model/)以打破循环导入:
+// model/gbt2016 与 model/gbt2025 需要 DefaultBytes,但当 model/ 引用了
+// gbt2016/gbt2025 的类型(经由 frame.ProtocolMessage)时,model/ 本身
+// 不能被它们导入。
 package modelutil
 
 import (
@@ -15,10 +15,10 @@ import (
 	"github.com/sunsky74/gb32960/utils"
 )
 
-// DefaultBytes is the default Bytes() implementation for message bodies.
-// It looks up the registered codec and encodes the message.
-// Callers must blank-import codec packages (or import codec/all) to trigger
-// init() registration.
+// DefaultBytes 是消息体的默认 Bytes() 实现。
+// 它查找已注册的编解码器并对消息编码。
+// 调用方必须空白导入编解码器包(或导入 codec/all)以触发
+// init() 注册。
 func DefaultBytes(v api.GBTVersion, msg api.Message, t reflect.Type) ([]byte, error) {
 	codec := api.GetCodec(v, t)
 	if codec == nil {

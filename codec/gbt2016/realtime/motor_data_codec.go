@@ -6,10 +6,10 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2016/realtime"
 )
 
-// MotorDataCodec encodes/decodes one V2016 驱动电机 entry (TLV type 0x02 element).
-// Field order and converters mirror Java MotorDataCodec:
+// MotorDataCodec 编解码一个 V2016 驱动电机条目(TLV 类型 0x02 元素)。
+// 字段顺序与转换器与 Java MotorDataCodec 一致:
 //
-//	MotorSeq(u8) MotorState(u8 raw byte)
+//	MotorSeq(u8) MotorState(u8 原始字节)
 //	ControllerTemperature(u8 ControllerTempConverter)
 //	MotorSpeed(u16 MotorSpeedConverter2016)
 //	MotorTorque(u16 MotorTorqueConverter2016)

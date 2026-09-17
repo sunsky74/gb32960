@@ -2,8 +2,8 @@ package model
 
 import "github.com/sunsky74/gb32960/api"
 
-// MessageBody is the interface for all message body types.
-// Each message body knows its protocol version and can encode itself to bytes.
+// MessageBody 是所有消息体类型的接口。
+// 每个消息体都知道自己的协议版本,并能把自己编码为字节。
 type MessageBody interface {
 	api.Message
 	Version() api.GBTVersion

@@ -6,21 +6,21 @@ import (
 	"github.com/sunsky74/gb32960/types"
 )
 
-// CustomV2025DataCodec encodes/decodes the V2025 自定义数据 entry
-// (TLV types 0x80~0xFE). Field order mirrors Java CustomV2025DataCodec:
+// CustomV2025DataCodec 编解码 V2025 自定义数据条目
+// (TLV 类型 0x80~0xFE)。字段顺序与 Java CustomV2025DataCodec 一致:
 //
-//	Decode: Length(u16) + Data[Length bytes]   (CustomKey NOT on wire — set by caller)
+//	Decode: Length(u16) + Data[Length bytes]   (CustomKey 不在线格式上;由调用方设置)
 //	Encode: CustomKey(u8) + Length(u16) + Data[Length bytes]
 //
-// The encode/decode asymmetry is intentional: on decode the parent TLV
-// dispatcher has already consumed the customKey byte (it IS the TLV flag),
-// so this codec reads only Length + Data. On encode the codec writes its
-// own customKey byte first (the dispatcher does not write a separate flag
-// for CustomV2025Data — matches Java RealTimeDataV2025Codec.encodePayload
-// which writes the type byte inside the CustomV2025Data codec itself).
+// 编码/解码的不对称是有意为之:解码时父级 TLV
+// 分发器已经消费了 customKey 字节(它就是 TLV 标志),
+// 因此本编解码器只读取 Length + Data。编码时本编解码器
+// 先写入自己的 customKey 字节(分发器不会为
+// CustomV2025Data 另写一个标志;与 Java RealTimeDataV2025Codec.encodePayload
+// 一致,后者把类型字节写在 CustomV2025Data 编解码器自身内部)。
 //
-// When Length is the BYTE2 error sentinel, the Data body is skipped
-// (Java: if (!DataErrorValue.BYTE2.inInvalid(length))).
+// 当 Length 为 BYTE2 错误哨兵值时,Data 主体被跳过
+// (Java: if (!DataErrorValue.BYTE2.inInvalid(length)))。
 type CustomV2025DataCodec struct{}
 
 func init() {

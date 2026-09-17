@@ -9,10 +9,10 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// RealTimeData is the V2016 realtime report (command 0x02) and the reissue
-// report (command 0x03 — shares the REAL_TIME body). The on-wire body is a
-// BeanTime followed by an optional sequence of TLV sub-records. Each sub-record
-// is present at most once per frame; any of the pointers below may be nil.
+// RealTimeData 是 V2016 实时上报(命令 0x02)与补发上报
+// (命令 0x03,共用 REAL_TIME 消息体)。线上消息体为一个 BeanTime,
+// 后跟可选的 TLV 子记录序列。每个子记录每帧至多出现一次;
+// 下面的任一指针均可能为 nil。
 type RealTimeData struct {
 	_                                  GBT2016Body
 	BeanTime                           model.BeanTime

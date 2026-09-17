@@ -1,6 +1,6 @@
 package types
 
-// RealTimeType represents the TLV type flag in V2016 realtime data.
+// RealTimeType 表示 V2016 实时数据中的 TLV 类型标志。
 type RealTimeType byte
 
 const (
@@ -15,14 +15,13 @@ const (
 	RealTimeTemperature RealTimeType = 0x09
 )
 
-// RealTimeV2025Type represents the TLV type flag in V2025 realtime data.
-// Values aligned EXACTLY with the reference Java implementation
-// (RealTimeTypeV2025).
+// RealTimeV2025Type 表示 V2025 实时数据中的 TLV 类型标志。
+// 取值与参考 Java 实现(RealTimeTypeV2025)完全一致。
 //
-// IMPORTANT: earlier draft scrambled these values — Java ALARM=0x06 (not 0x07),
-// BATTERY_MIN_PARALLEL_VOLTAGE_VALUE=0x07, BATTERY_TEMP=0x08. There is NO
-// Extremum / ChargeableVoltage / ChargeableTemperature in V2025 — those were
-// invented. See audit 2026-07-31.
+// 重要:早期草稿打乱了这些取值,Java 中 ALARM=0x06(不是 0x07)、
+// BATTERY_MIN_PARALLEL_VOLTAGE_VALUE=0x07、BATTERY_TEMP=0x08。V2025 中
+// 没有 Extremum / ChargeableVoltage / ChargeableTemperature,这些是
+// 凭空杜撰的。见 audit 2026-07-31。
 type RealTimeV2025Type byte
 
 const (
@@ -40,15 +39,15 @@ const (
 	RealTimeV2025SuperCapExtremum RealTimeV2025Type = 0x32 // 超级电容器极值数据
 
 	RealTimeV2025CustomStart RealTimeV2025Type = 0x80 // 自定义数据开始标志
-	RealTimeV2025Custom      RealTimeV2025Type = 0x80 // 自定义数据标志 (0x80~0xFE all map here)
+	RealTimeV2025Custom      RealTimeV2025Type = 0x80 // 自定义数据标志 (0x80~0xFE 全部映射到这里)
 	RealTimeV2025CustomEnd   RealTimeV2025Type = 0xFE // 自定义数据结束标志
 
 	RealTimeV2025Signature RealTimeV2025Type = 0xFF // 签名数据开始标识
 )
 
-// RealTimeV2025TypeByCode mirrors Java RealTimeTypeV2025.valueOf(): the whole
-// 0x80~0xFE range maps to CUSTOM_DATA_FLAG. Callers that need exact custom
-// bytes should switch on the raw byte instead.
+// RealTimeV2025TypeByCode 对应 Java RealTimeTypeV2025.valueOf():整个
+// 0x80~0xFE 范围都映射到 CUSTOM_DATA_FLAG。需要精确自定义字节的调用方
+// 应改为直接对原始字节做 switch。
 func RealTimeV2025TypeByCode(code byte) (RealTimeV2025Type, bool) {
 	u := int(code) & 0xFF
 	if u >= 0x80 && u <= 0xFE {

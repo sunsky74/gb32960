@@ -12,27 +12,25 @@ import (
 	"github.com/sunsky74/gb32960/types"
 )
 
-// realtimeCodecV2016For dispatches a TLV flag byte to the codec that decodes
-// the corresponding realtime sub-record. The lookup runs fresh on each call.
+// realtimeCodecV2016For 把 TLV 标志字节分发到解码对应实时子记录的
+// 编解码器。每次调用时重新查找。
 //
-// INIT-ORDER HAZARD FIX (audit 2026-07-31, mirrors V2025 sibling fix in
-// codec/gbt2025/realtime_data_v2025_codec.go): an earlier draft built a
-// single dispatch map at init() time. That is fragile: Go does not guarantee
-// init() order between non-dependent packages, so if codec/gbt2016 inits
-// before codec/gbt2016/realtime (which is legal — neither imports the other),
-// the map ends up full of nil entries and Decode fails with
-// api.ErrUnknownTLVType on the first TLV byte. Looking up on each call
-// sidesteps the init-order hazard entirely and still uses api.GetCodec
-// (so the file stays decoupled from codec/gbt2016/realtime — the consumer's
-// blank import is what makes registrations visible by the time Decode runs).
+// 初始化顺序风险修复(audit 2026-07-31,镜像 codec/gbt2025/realtime_data_v2025_codec.go
+// 中的 V2025 同族修复):早期草稿在 init() 时构建单个分发 map。
+// 这很脆弱:Go 不保证互不依赖的包之间的 init() 顺序,所以如果
+// codec/gbt2016 先于 codec/gbt2016/realtime 初始化(这是合法的,两者互不导入),
+// map 最终会充满 nil 条目,Decode 在第一个 TLV 字节上就失败并返回
+// api.ErrUnknownTLVType。每次调用时查找可完全绕开初始化顺序风险,
+// 并且仍然使用 api.GetCodec
+// (这样本文件与 codec/gbt2016/realtime 保持解耦,消费方的
+// 空白导入才是在 Decode 运行时让注册可见的关键)。
 //
-// DEVIATION FROM PLAN 2 SAMPLE (reported): Plan 2 Part C3 references the
-// realtime CODEC types via the alias `realtime` (e.g. `&realtime.VehicleDataCodec{}`),
-// but that alias is also used for the realtime MODEL package — they would
-// collide. Plan 2 also wrote the dispatched fields as `m.VoltageList` /
-// `m.TempList`; the actual RealTimeData model exposes them as
-// `ChargeableSubsystemElectricList` and `ChargeableSubsystemTemperatureList`
-// (see model/gbt2016/realtime_data.go). We use the actual field names.
+// 与 Plan 2 示例的偏差(已上报):Plan 2 Part C3 通过别名 `realtime`
+// 引用实时 CODEC 类型(例如 `&realtime.VehicleDataCodec{}`),
+// 但该别名也被实时 MODEL 包使用,二者会冲突。Plan 2 还把被分发的字段
+// 写成 `m.VoltageList` / `m.TempList`;实际的 RealTimeData 模型把它们
+// 暴露为 `ChargeableSubsystemElectricList` 和 `ChargeableSubsystemTemperatureList`
+// (见 model/gbt2016/realtime_data.go)。我们使用实际的字段名。
 func realtimeCodecV2016For(rt types.RealTimeType) api.Codecer {
 	switch rt {
 	case types.RealTimeVehicle:
@@ -63,20 +61,20 @@ func init() {
 	api.Register[mdl.RealTimeData](api.V2016, &RealTimeDataCodec{})
 }
 
-// codecFor returns the V2016 codec registered for the type of v, or nil.
-// Using api.GetCodec keeps this file decoupled from codec/gbt2016/realtime
-// (no direct import) — the consumer's blank import of that package is what
-// makes the registrations visible. If the consumer forgot the blank import,
-// the lookup returns nil and decode surfaces api.ErrCodecNotFound.
+// codecFor 返回为 v 的类型注册的 V2016 编解码器,不存在则为 nil。
+// 使用 api.GetCodec 使本文件与 codec/gbt2016/realtime 解耦
+// (不直接导入),消费方对该包的空白导入
+// 才是让注册可见的关键。如果消费方忘记空白导入,
+// 查找返回 nil,解码会上报 api.ErrCodecNotFound。
 func codecFor(v any) api.Codecer {
 	t := reflect.TypeOf(v)
 	return api.GetCodec(api.V2016, t)
 }
 
-// Decode mirrors Java RealTimeDataCodec.decodeBuffer: BeanTime via registered
-// codec, then a TLV loop reading (flag, sub-record) pairs until the buffer
-// is exhausted. Unknown flags surface as api.ErrUnknownTLVType (NOT a silent
-// break — Java swallows them, but Plan 2 mandates the error).
+// Decode 镜像 Java RealTimeDataCodec.decodeBuffer:先经由已注册的
+// 编解码器解码 BeanTime,然后进入 TLV 循环,持续读取(flag, 子记录)对,
+// 直到缓冲区耗尽。未知 flag 上报为 api.ErrUnknownTLVType(不是静默
+// 中断,Java 会吞掉它们,但 Plan 2 强制要求返回该错误)。
 func (c *RealTimeDataCodec) Decode(r api.Reader) (api.Message, error) {
 	m := &mdl.RealTimeData{}
 
@@ -150,10 +148,10 @@ func (c *RealTimeDataCodec) Decode(r api.Reader) (api.Message, error) {
 	return m, nil
 }
 
-// Encode mirrors Java RealTimeDataCodec.encodeBuffer: BeanTime via registered
-// codec, then each non-nil sub-record prefixed with its TLV flag byte.
-// Sub-record emit order matches Java (Vehicle, Motor, FuelCell, Engine,
-// Location, Extremum, Alarm, Voltage, Temperature).
+// Encode 镜像 Java RealTimeDataCodec.encodeBuffer:先经由已注册的
+// 编解码器编码 BeanTime,然后输出每个非 nil 的子记录,各自前置其
+// TLV 标志字节。子记录输出顺序与 Java 一致(Vehicle, Motor, FuelCell, Engine,
+// Location, Extremum, Alarm, Voltage, Temperature)。
 func (c *RealTimeDataCodec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.RealTimeData)
 
@@ -228,6 +226,12 @@ func (c *RealTimeDataCodec) Encode(w api.Writer, msg api.Message) error {
 		}
 		sort.Ints(keys)
 		for _, k := range keys {
+			// audit 2026-09-17 (L1):表 8 的自定义 flag 为 0x80~0xFE;拒绝任何
+			// 其他 key(例如 0xFF),而不是发出一个会被解码器
+			// 作为未知 TLV 类型拒绝的帧。
+			if k < 0x80 || k > 0xFE {
+				return fmt.Errorf("gb32960: custom data flag 0x%02X out of range 0x80~0xFE", k)
+			}
 			data := m.CustomData[byte(k)]
 			w.WriteUint8(byte(k))
 			w.WriteUint16(uint16(len(data)))

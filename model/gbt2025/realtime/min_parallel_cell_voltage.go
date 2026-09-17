@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// MinParallelCellVoltage is the V2025 minimum parallel cell voltage info (TLV 0x07).
-// V2025-only type; no V2016 equivalent.
+// MinParallelCellVoltage 是 V2025 最小并联单元电压信息(TLV 0x07)。
+// V2025 独有类型;V2016 无对应类型。
 type MinParallelCellVoltage struct {
 	BatteryPackSeq   int       // 动力蓄电池包号
 	Voltage          float64   // V, scale=0.1

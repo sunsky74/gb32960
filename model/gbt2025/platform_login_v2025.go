@@ -8,16 +8,16 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// PlatformLoginV2025 is the V2025 platform login request (command 0x05).
-// V2025 reuses the V2016 PlatformLogin wire format (reference implementation).
-// Wire format: BeanTime(6B) + SerialNum(2B) + Username(12B) + Password(20B) + Cipher(1B) = 41 bytes.
+// PlatformLoginV2025 是 V2025 平台登入请求(命令 0x05)。
+// V2025 复用 V2016 PlatformLogin 的线格式(参考实现)。
+// 线格式:BeanTime(6B) + SerialNum(2B) + Username(12B) + Password(20B) + Cipher(1B) = 41 字节。
 type PlatformLoginV2025 struct {
 	_         GBT2025Body
 	BeanTime  model.BeanTime
 	SerialNum int
-	Username  string // 12 bytes fixed-length
-	Password  string // 20 bytes fixed-length
-	Cipher    byte   // 1-byte encryption selector (matches Java cipherSelect.select(version(), buffer.readByte()))
+	Username  string // 12 字节定长
+	Password  string // 20 字节定长
+	Cipher    byte   // 1 字节加密选择符(对应 Java cipherSelect.select(version(), buffer.readByte()))
 }
 
 func (m *PlatformLoginV2025) Version() api.GBTVersion { return api.V2025 }

@@ -9,35 +9,46 @@ import (
 	"github.com/sunsky74/gb32960/utils"
 )
 
-// ProtocolCodec is the top-level frame codec.
-// Decode: validates BCC, parses header fields, decrypts payload (0x01 only).
-// Encode: constructs header, encrypts payload, appends BCC.
+// ProtocolCodec 是顶层帧编解码器。
+// Decode:校验 BCC、解析帧头字段、解密数据单元(仅 0x01)。
+// Encode:构造帧头、加密数据单元、追加 BCC。
 var ProtocolCodec = &protocolMessageCodec{}
 
 type protocolMessageCodec struct{}
 
-// Decode parses a complete GB/T 32960 protocol frame from r.
+// Decode 从 r 解析一个完整的 GB/T 32960 协议帧。
 //
-// Wire layout: Header(2B) | Cmd(1B) | Response(1B) | VIN(17B) | Encryption(1B)
+// 线格式布局:Header(2B) | Cmd(1B) | Response(1B) | VIN(17B) | Encryption(1B)
 //
 //	| PayloadLen(2B) | Payload(N B) | BCC(1B)
 //
-// BCC covers bytes [2:] of the frame (everything after the 2-byte header).
-// Only EncryptionNone (0x01, pass-through) is supported; any other mode
-// returns api.ErrEncryptionNotSupported.
+// BCC 覆盖帧的 [2:] 字节(即 2 字节帧头之后的全部内容)。
+// 仅支持 EncryptionNone(0x01,直通);其他任何模式
+// 都返回 api.ErrEncryptionNotSupported。
 func (c *protocolMessageCodec) Decode(r api.Reader) (api.Message, error) {
 	m := &frame.ProtocolMessage{}
 
-	// 1. Read version header (2 bytes).
+	// 1. 读取版本帧头(2 字节)。
 	header := r.ReadUint16()
+	// fix 2026-09-17: 2016.md 表2 L31(同表B.1 L614)、2025.md 表2 L32 ——
+	// 起始符固定为 "##"(0x23,0x23,2016 版)或 "$$"(0x24,0x24,2025 版)。
+	// 此前任意 2 字节都会被接受,未知帧头还会被 GBTVersionByHeader
+	// 静默按 2016 版解析;起始符位于 BCC 覆盖范围之外,必须在此显式校验。
+	// 先上报读取下溢,保持既有的 ErrBufferUnderflow 语义。
+	if err := r.Err(); err != nil {
+		return nil, err
+	}
+	if header != 0x2323 && header != 0x2424 {
+		return nil, api.ErrInvalidHeader
+	}
 	m.Version = types.GBTVersionByHeader(header)
 
-	// 2. Read remaining bytes (command through BCC, inclusive).
+	// 2. 读取剩余字节(从命令字段到 BCC,含两端)。
 	bodyWithBCC := r.ReadBytes(r.Remaining())
 
-	// 3. Validate BCC: XOR of all bytes except the last must equal the last byte.
-	// An empty body means either the header underflowed or no body at all —
-	// surface as ErrBufferUnderflow (tolerant of r.Err() per api.Reader contract).
+	// 3. 校验 BCC:除最后一个字节外所有字节的异或值必须等于最后一个字节。
+	// 空帧体意味着帧头下溢,或根本没有帧体,
+	// 统一上报为 ErrBufferUnderflow(按 api.Reader 契约,容忍 r.Err() 存在)。
 	if len(bodyWithBCC) == 0 {
 		return nil, api.ErrBufferUnderflow
 	}
@@ -49,12 +60,12 @@ func (c *protocolMessageCodec) Decode(r api.Reader) (api.Message, error) {
 	}
 	m.CheckCode = actualBCC
 
-	// 4. Parse protocol header fields from bodyBytes.
+	// 4. 从 bodyBytes 解析协议帧头字段。
 	bodyReader := utils.NewByteReader(bodyBytes)
 	cmd := bodyReader.ReadUint8()
-	// Dispatch by version: V2025 has its own command table; V2016 is the default.
-	// (audit 2026-07-31: earlier draft hardcoded CommandV2016ByCode, which would
-	// mis-classify V2025 frames. Mirror the reference implementation's switch.)
+	// 按版本分发:V2025 有自己的命令表;V2016 为默认。
+	// (audit 2026-07-31:早期草稿硬编码了 CommandV2016ByCode,会把
+	// V2025 帧错误分类。对齐参考实现的 switch 写法。)
 	switch m.Version {
 	case api.V2025:
 		m.RequestType = types.CommandV2025ByCode(cmd)
@@ -66,48 +77,81 @@ func (c *protocolMessageCodec) Decode(r api.Reader) (api.Message, error) {
 	m.Encryption = types.EncryptionType(bodyReader.ReadUint8())
 	m.PayloadLength = int(bodyReader.ReadUint16())
 
-	// 5. Read payload and reject non-pass-through encryption.
-	// For 0x01 (EncryptionNone) the wire bytes ARE the plaintext payload.
+	// audit 2026-09-17:GB/T 32960 表 2 将数据单元长度上限设为 65531 字节。
+	if m.PayloadLength > 65531 {
+		return nil, api.ErrLengthMismatch
+	}
+
+	// 5. 读取数据单元,并拒绝非直通加密。
+	// 对 0x01(EncryptionNone)而言,线上字节就是明文数据单元。
 	encrypted := bodyReader.ReadBytes(m.PayloadLength)
 	if m.Encryption != types.EncryptionNone {
 		return nil, api.ErrEncryptionNotSupported
 	}
-	m.RawBytes = encrypted // 0x01: encrypted == plain
+	m.RawBytes = encrypted // 0x01:encrypted 即明文
 
-	// Surface any underflow recorded while parsing the body fields
-	// (matches the pattern in codec/gbt2016/platform_login_codec.go).
+	// 上报解析帧体字段期间记录的任何下溢
+	// (与 codec/gbt2016/platform_login_codec.go 中的模式一致)。
 	if err := bodyReader.Err(); err != nil {
 		return nil, err
+	}
+	// audit 2026-09-17:超出声明数据单元长度的尾随字节意味着
+	// 长度字段与帧体不一致;此前被静默丢弃。
+	if bodyReader.Remaining() != 0 {
+		return nil, api.ErrLengthMismatch
 	}
 	return m, nil
 }
 
-// Encode writes a complete GB/T 32960 protocol frame for msg into w.
+// Encode 将 msg 的完整 GB/T 32960 协议帧写入 w。
 //
-// DEVIATION FROM PLAN 2 SAMPLE (reported): Plan 2 Part B's sample calls
-// `w.Bytes()[2:]` to compute the BCC range, but the api.Writer interface
-// (see api/api.go) has no Bytes() method — only the concrete *utils.ByteWriter
-// does. To stay faithful to the frame layout while working with any
-// api.Writer, we mirror frame.ProtocolMessage.Bytes() into a local
-// *utils.ByteWriter (which does expose Bytes()), compute BCC over its [2:]
-// slice, then emit the assembled frame via w.WriteBytes. The resulting wire
-// bytes are byte-for-byte identical to frame.ProtocolMessage.Bytes().
+// 与 Plan 2 示例的偏差(已上报):Plan 2 Part B 的示例调用
+// `w.Bytes()[2:]` 计算 BCC 范围,但 api.Writer 接口
+// (见 api/api.go)没有 Bytes() 方法,只有具体类型 *utils.ByteWriter
+// 才有。为了在与任意 api.Writer 协作的同时保持帧布局不变,
+// 我们把 frame.ProtocolMessage.Bytes() 镜像到本地的
+// *utils.ByteWriter(它确实暴露 Bytes()),在其 [2:]
+// 切片上计算 BCC,然后通过 w.WriteBytes 输出组装好的帧。产出的线上
+// 字节与 frame.ProtocolMessage.Bytes() 逐字节一致。
 func (c *protocolMessageCodec) Encode(w api.Writer, msg api.Message) error {
 	m, ok := msg.(*frame.ProtocolMessage)
 	if !ok {
 		return errors.New("gb32960: message is not *frame.ProtocolMessage")
 	}
-	if m.Payload == nil {
-		return errors.New("gb32960: Payload is nil, cannot encode protocol frame")
-	}
-
 	code, ok := frame.CommandCode(m.RequestType)
 	if !ok {
 		return errors.New("gb32960: RequestType is nil or unknown command type")
 	}
 
-	// Build into a local writer so the BCC range ([2:]) is observable.
-	// This mirrors frame.ProtocolMessage.Bytes() exactly.
+	// audit 2026-09-17:nil Payload 仅在命令没有帧体类型时合法
+	// (0x07/0x08 及预留命令,0 字节数据单元)。与
+	// frame.ProtocolMessage.Bytes() 完全一致。
+	var payload []byte
+	if m.Payload != nil {
+		var err error
+		payload, err = m.Payload.Bytes()
+		if err != nil {
+			return err
+		}
+	} else if frame.PayloadType(m.Version, code) != nil {
+		return errors.New("gb32960: Payload is nil for a command that requires a body")
+	} else if len(m.RawBytes) > 0 {
+		// fix 2026-09-17: 2016.md 表3 L65(0xC0~0xFE 平台交换自定义数据,
+		// 同 2025.md 表3 L62)—— 无注册消息体类型的命令,其数据单元必须
+		// 以解码时保存的原始字节透传。此处与 frame.ProtocolMessage.Bytes()
+		// 保持逐字节一致,避免重编码写出空数据单元。
+		payload = m.RawBytes
+	}
+	if m.Encryption != types.EncryptionNone {
+		return api.ErrEncryptionNotSupported
+	}
+	// audit 2026-09-17:GB/T 32960 表 2 将数据单元长度上限设为 65531 字节。
+	if len(payload) > 65531 {
+		return api.ErrLengthMismatch
+	}
+
+	// 构建到本地 writer,使 BCC 范围([2:])可观测。
+	// 这与 frame.ProtocolMessage.Bytes() 完全一致。
 	local := utils.NewByteWriter()
 	local.WriteString(types.Header(m.Version), 2)
 	local.WriteUint8(code)
@@ -115,22 +159,14 @@ func (c *protocolMessageCodec) Encode(w api.Writer, msg api.Message) error {
 	local.WriteString(m.VIN, 17)
 	local.WriteUint8(byte(m.Encryption))
 
-	payload, err := m.Payload.Bytes()
-	if err != nil {
-		return err
-	}
-	if m.Encryption != types.EncryptionNone {
-		return api.ErrEncryptionNotSupported
-	}
-
 	local.WriteUint16(uint16(len(payload)))
 	local.WriteBytes(payload)
 
-	// BCC: XOR of everything from byte[2] (after the 2-byte header) to end of payload.
+	// BCC:从 byte[2](2 字节帧头之后)到数据单元末尾的所有字节异或。
 	bccRange := local.Bytes()[2:]
 	local.WriteUint8(utils.CalcBCC(bccRange))
 
-	// Emit the assembled frame into the caller-provided writer.
+	// 将组装好的帧输出到调用方提供的 writer。
 	w.WriteBytes(local.Bytes())
 	return nil
 }

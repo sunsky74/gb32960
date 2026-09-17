@@ -8,15 +8,15 @@ import (
 	mdl "github.com/sunsky74/gb32960/model/gbt2016"
 )
 
-// PlatformLogoutCodec encodes/decodes the V2016 platform logout request (command 0x06).
-// Wire layout: BeanTime(6B) + SerialNum(2B).
+// PlatformLogoutCodec 编解码 V2016 平台登出请求(命令 0x06)。
+// 线格式布局:BeanTime(6B) + SerialNum(2B)。
 type PlatformLogoutCodec struct{}
 
 func init() {
 	api.Register[mdl.PlatformLogout](api.V2016, &PlatformLogoutCodec{})
 }
 
-// Decode mirrors Java PlatformLogoutCodec.decodeBuffer.
+// Decode 镜像 Java PlatformLogoutCodec.decodeBuffer。
 func (c *PlatformLogoutCodec) Decode(r api.Reader) (api.Message, error) {
 	m := &mdl.PlatformLogout{}
 
@@ -38,7 +38,7 @@ func (c *PlatformLogoutCodec) Decode(r api.Reader) (api.Message, error) {
 	return m, nil
 }
 
-// Encode mirrors Java PlatformLogoutCodec.encodeBuffer.
+// Encode 镜像 Java PlatformLogoutCodec.encodeBuffer。
 func (c *PlatformLogoutCodec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*mdl.PlatformLogout)
 

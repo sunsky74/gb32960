@@ -7,11 +7,11 @@ func TestCalcBCC(t *testing.T) {
 		data     []byte
 		expected byte
 	}{
-		{[]byte{0x01, 0x02, 0x03}, 0x00},      // 1^2^3 = 0
-		{[]byte{0xFF, 0xFF, 0xFF}, 0xFF},      // 0xFF ^ 0xFF ^ 0xFF = 0xFF
+		{[]byte{0x01, 0x02, 0x03}, 0x00},       // 1^2^3 = 0
+		{[]byte{0xFF, 0xFF, 0xFF}, 0xFF},       // 0xFF ^ 0xFF ^ 0xFF = 0xFF
 		{[]byte{0x00, 0x00, 0x00, 0x01}, 0x01}, // 0^0^0^1 = 1
-		{[]byte{}, 0x00},                       // empty
-		{[]byte{0xAA, 0x55}, 0xFF},            // 0xAA ^ 0x55 = 0xFF
+		{[]byte{}, 0x00},                       // 空
+		{[]byte{0xAA, 0x55}, 0xFF},             // 0xAA ^ 0x55 = 0xFF
 	}
 
 	for _, tt := range tests {
@@ -29,11 +29,11 @@ func TestCalcBCC_SingleByte(t *testing.T) {
 }
 
 func TestCalcBCC_Repeating(t *testing.T) {
-	// XOR of identical bytes for even count = 0x00
+	// 相同字节出现偶数次时异或结果为 0x00
 	if got := CalcBCC([]byte{0x55, 0x55}); got != 0x00 {
 		t.Errorf("repeating even: want 0x00, got 0x%02X", got)
 	}
-	// Three identical bytes
+	// 三个相同字节
 	if got := CalcBCC([]byte{0xAA, 0xAA, 0xAA}); got != 0xAA {
 		t.Errorf("repeating odd: want 0xAA, got 0x%02X", got)
 	}

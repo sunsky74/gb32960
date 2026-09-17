@@ -30,12 +30,37 @@ func TestByteReader_Uint16_BigEndian(t *testing.T) {
 }
 
 func TestByteReader_ReadString_TrimsSpaces(t *testing.T) {
-	data := []byte("HELLO           ") // 15 bytes, "HELLO" + 10 spaces
+	data := []byte("HELLO           ") // 15 字节,"HELLO" + 10 个空格
 	r := NewByteReader(data)
 
 	s := r.ReadString(15)
 	if s != "HELLO" {
 		t.Errorf("expected 'HELLO', got '%s'", s)
+	}
+}
+
+// TestByteReader_ReadString_TrimsNULAndSpaces 锁定 audit 2026-09-17 (L3)
+// 契约:GB/T 32960-2016 表1 将 STRING 定义为为空时带 0x00 终止符,
+// 而真实终端用 ' ' 或 0x00 填充定长字段,
+// ReadString 必须去除这两种尾部填充。
+func TestByteReader_ReadString_TrimsNULAndSpaces(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []byte
+		want string
+	}{
+		{"NUL padding", []byte("AB\x00\x00"), "AB"},
+		{"space padding", []byte("AB  "), "AB"},
+		{"mixed padding", []byte("A\x00 "), "A"},
+		{"all NUL", []byte{0x00, 0x00, 0x00}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewByteReader(tc.in)
+			if got := r.ReadString(len(tc.in)); got != tc.want {
+				t.Errorf("ReadString(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -75,13 +100,13 @@ func TestByteWriter_Roundtrip(t *testing.T) {
 	}
 }
 
-// TestByteReader_Underflow verifies the bounds-check policy added in
-// audit 2026-07-31: reading past the end returns the zero value and
-// records api.ErrBufferUnderflow via Err(), instead of panicking.
+// TestByteReader_Underflow 验证 audit 2026-07-31 加入的
+// 边界检查策略:越界读取返回零值,并
+// 通过 Err() 记录 api.ErrBufferUnderflow,而不是 panic。
 func TestByteReader_Underflow(t *testing.T) {
-	r := NewByteReader([]byte{0x01}) // only 1 byte available
+	r := NewByteReader([]byte{0x01}) // 只有 1 个字节可用
 
-	// First read succeeds
+	// 首次读取成功
 	if b := r.ReadUint8(); b != 0x01 {
 		t.Fatalf("expected 0x01, got 0x%02X", b)
 	}
@@ -89,7 +114,7 @@ func TestByteReader_Underflow(t *testing.T) {
 		t.Fatalf("unexpected err after valid read: %v", err)
 	}
 
-	// Subsequent reads underflow: zero value returned, no panic
+	// 后续读取发生下溢:返回零值,不 panic
 	if v := r.ReadUint16(); v != 0 {
 		t.Errorf("underflow ReadUint16: expected 0, got 0x%04X", v)
 	}
@@ -100,7 +125,7 @@ func TestByteReader_Underflow(t *testing.T) {
 		t.Errorf("underflow ReadString: expected empty, got %q", s)
 	}
 
-	// Err() must now report underflow
+	// 此时 Err() 必须报告下溢
 	if err := r.Err(); err == nil {
 		t.Fatal("expected ErrBufferUnderflow after underflow reads, got nil")
 	}

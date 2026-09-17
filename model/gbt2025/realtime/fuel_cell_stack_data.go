@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// FuelCellStackData is a single V2025 fuel cell stack record (TLV 0x30).
-// V2025-only type.
+// FuelCellStackData 是一条 V2025 燃料电池电堆记录(TLV 0x30)。
+// V2025 独有类型。
 type FuelCellStackData struct {
 	StackSeq               int       // 燃料电池电堆序号
 	Voltage                float64   // V, scale=0.1

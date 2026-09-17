@@ -5,11 +5,11 @@ import (
 
 	"github.com/sunsky74/gb32960/api"
 	"github.com/sunsky74/gb32960/model"
-	"github.com/sunsky74/gb32960/modelutil"
 	"github.com/sunsky74/gb32960/model/gbt2025/realtime"
+	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// VehicleActivate is the V2025 vehicle activation request (command 0x09).
+// VehicleActivate 是 V2025 车辆激活请求(命令 0x09)。
 type VehicleActivate struct {
 	_               GBT2025Body
 	CollectTime     model.BeanTime

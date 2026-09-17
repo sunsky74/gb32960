@@ -10,17 +10,17 @@ import (
 	"github.com/sunsky74/gb32960/model/gbt2016"
 	"github.com/sunsky74/gb32960/utils"
 
-	// Blank-import to trigger codec init() registration.
-	// The parent gbt2016 package registers VehicleLogin + the RealTimeData
-	// dispatch map; the realtime sub-package must also be imported so its
-	// init() registers the sub-codecs that the dispatch map looks up.
+	// 空导入以触发编解码器 init() 注册。
+	// 父包 gbt2016 注册 VehicleLogin 和 RealTimeData
+	// 分发表;realtime 子包也必须导入,这样其
+	// init() 才会注册分发表要查找的各子编解码器。
 	_ "github.com/sunsky74/gb32960/codec/gbt2016"
 	_ "github.com/sunsky74/gb32960/codec/gbt2016/realtime"
 )
 
-// TestVehicleLogin_Roundtrip is the Plan 2 Part C2 Step 2 acceptance test:
-// encode → decode → re-encode must be byte-identical, and the ICCID and Codes
-// fields must survive the round trip (including right-trim of pad bytes).
+// TestVehicleLogin_Roundtrip 是 Plan 2 Part C2 Step 2 验收测试:
+// 编码 → 解码 → 重编码必须逐字节一致,且 ICCID 和 Codes
+// 字段必须完整通过往返(包括对填充字节的右截断)。
 func TestVehicleLogin_Roundtrip(t *testing.T) {
 	original := &gbt2016.VehicleLogin{
 		BeanTime:  model.BeanTime{Year: 26, Month: 7, Day: 31, Hour: 10, Minute: 30, Second: 0},
@@ -36,7 +36,7 @@ func TestVehicleLogin_Roundtrip(t *testing.T) {
 		t.Fatalf("encode failed: %v", err)
 	}
 
-	// Wire layout: BeanTime(6) + SerialNum(2) + ICCID(20) + Count(1) + Length(1) + 2*3 = 34
+	// 线格式布局:BeanTime(6) + SerialNum(2) + ICCID(20) + Count(1) + Length(1) + 2*3 = 34
 	const wantLen = 6 + 2 + 20 + 1 + 1 + 2*3
 	if len(encoded) != wantLen {
 		t.Fatalf("encoded length: got %d, want %d (bytes=%X)", len(encoded), wantLen, encoded)
@@ -52,7 +52,7 @@ func TestVehicleLogin_Roundtrip(t *testing.T) {
 	}
 	result := decoded.(*gbt2016.VehicleLogin)
 
-	// Verify fields.
+	// 校验字段。
 	if result.BeanTime != original.BeanTime {
 		t.Errorf("BeanTime mismatch: got %v, want %v", result.BeanTime, original.BeanTime)
 	}
@@ -77,7 +77,7 @@ func TestVehicleLogin_Roundtrip(t *testing.T) {
 		}
 	}
 
-	// Re-encode and verify byte stability.
+	// 重编码并校验字节稳定性。
 	reEncoded, err := result.Bytes()
 	if err != nil {
 		t.Fatalf("re-encode failed: %v", err)

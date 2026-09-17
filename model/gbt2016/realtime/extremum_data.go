@@ -7,8 +7,8 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// ExtremumData is the V2016 极值数据 sub-record (TLV type 0x06).
-// Field names mirror Java ExtremumData.
+// ExtremumData 是 V2016 极值数据子记录(TLV 类型 0x06)。
+// 字段名与 Java ExtremumData 保持一致。
 type ExtremumData struct {
 	VoltageMaxSubsystem     int     // 最高电压电池子系统号
 	VoltageMaxBattery       int     // 最高电压电池单体代号

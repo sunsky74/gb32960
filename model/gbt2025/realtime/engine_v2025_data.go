@@ -7,9 +7,9 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// EngineV2025Data is the V2025 engine data (TLV 0x04).
-// Compared to V2016 EngineData, V2025 has ONLY crankshaftSpeed (removes state
-// and fuelConsumptionRate).
+// EngineV2025Data 是 V2025 发动机数据(TLV 0x04)。
+// 与 V2016 的 EngineData 相比,V2025 仅有 crankshaftSpeed
+// (移除了 state 和 fuelConsumptionRate)。
 type EngineV2025Data struct {
 	CrankshaftSpeed int // rpm, 0~60000
 }

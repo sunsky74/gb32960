@@ -1,4 +1,4 @@
-// Package gbt2016 contains GB/T 32960-2016 message body codecs.
+// Package gbt2016 包含 GB/T 32960-2016 消息体编解码器。
 package gbt2016
 
 import (
@@ -6,15 +6,15 @@ import (
 	"github.com/sunsky74/gb32960/model"
 )
 
-// BeanTimeCodec encodes/decodes model.BeanTime as 6 wire bytes
-// (Year, Month, Day, Hour, Minute, Second).
+// BeanTimeCodec 将 model.BeanTime 编码/解码为 6 个线上字节
+// (Year, Month, Day, Hour, Minute, Second)。
 type BeanTimeCodec struct{}
 
 func init() {
 	api.Register[model.BeanTime](api.V2016, &BeanTimeCodec{})
 }
 
-// Decode reads 6 bytes via r.ReadUint8 and returns a *model.BeanTime.
+// Decode 通过 r.ReadUint8 读取 6 字节,返回 *model.BeanTime。
 func (c *BeanTimeCodec) Decode(r api.Reader) (api.Message, error) {
 	bt := &model.BeanTime{
 		Year:   int(r.ReadUint8()),
@@ -30,7 +30,7 @@ func (c *BeanTimeCodec) Decode(r api.Reader) (api.Message, error) {
 	return bt, nil
 }
 
-// Encode writes 6 bytes via w.WriteUint8.
+// Encode 通过 w.WriteUint8 写入 6 字节。
 func (c *BeanTimeCodec) Encode(w api.Writer, msg api.Message) error {
 	m := msg.(*model.BeanTime)
 	w.WriteUint8(byte(m.Year))

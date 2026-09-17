@@ -7,10 +7,10 @@ import (
 	"github.com/sunsky74/gb32960/modelutil"
 )
 
-// VehicleSignature is the V2025 vehicle signature data (TLV 0xFF).
-// SignatureType maps to Java SignatureType: 0x01=SM2, 0x02=RSA, 0x03=ECC, 0xFF=OTHER.
+// VehicleSignature 是 V2025 车辆签名数据(TLV 0xFF)。
+// SignatureType 映射到 Java 的 SignatureType:0x01=SM2, 0x02=RSA, 0x03=ECC, 0xFF=OTHER。
 type VehicleSignature struct {
-	Type     byte   // SignatureType enum
+	Type     byte   // SignatureType 枚举
 	RLength  int    // R值长度
 	RValue   []byte // R值
 	SLength  int    // S值长度

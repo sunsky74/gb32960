@@ -15,17 +15,17 @@ import (
 	_ "github.com/sunsky74/gb32960/codec/all"
 )
 
-// TestLayerC_GoldenRegression validates that Go decodes Java-encoded golden
-// files and re-encodes them byte-for-byte identical.
+// TestLayerC_GoldenRegression 验证 Go 能解码 Java 编码的金样文件,
+// 并重编码出逐字节一致的结果。
 //
-// For each .hex file in golden/layer_c/, the test:
-//  1. Reads the Java-encoded hex
-//  2. Decodes the full protocol frame
-//  3. Auto-decodes the payload via DecodePayload()
-//  4. Re-encodes the frame via frame.ProtocolMessage.Bytes()
-//  5. Compares: Go re-encoded bytes must match Java original bytes
+// 对 golden/layer_c/ 中的每个 .hex 文件,测试会:
+//  1. 读取 Java 编码的十六进制
+//  2. 解码完整协议帧
+//  3. 通过 DecodePayload() 自动解码数据单元
+//  4. 通过 frame.ProtocolMessage.Bytes() 重编码该帧
+//  5. 比较:Go 重编码的字节必须与 Java 原始字节一致
 //
-// When golden files are absent, the test skips gracefully.
+// 金样文件缺失时,测试优雅跳过。
 func TestLayerC_GoldenRegression(t *testing.T) {
 	goldenDir := "golden/layer_c"
 	files, err := filepath.Glob(filepath.Join(goldenDir, "*.hex"))
@@ -37,7 +37,7 @@ func TestLayerC_GoldenRegression(t *testing.T) {
 	for _, hexFile := range files {
 		name := strings.TrimSuffix(filepath.Base(hexFile), ".hex")
 		t.Run(name, func(t *testing.T) {
-			// 1. Read Java-encoded hex
+			// 1. 读取 Java 编码的十六进制
 			javaHex, err := os.ReadFile(hexFile)
 			if err != nil {
 				t.Fatalf("read golden file: %v", err)
@@ -47,7 +47,7 @@ func TestLayerC_GoldenRegression(t *testing.T) {
 				t.Fatalf("hex decode: %v", err)
 			}
 
-			// 2. Decode as full protocol frame
+			// 2. 按完整协议帧解码
 			r := utils.NewByteReader(javaBytes)
 			msg, err := codec.ProtocolCodec.Decode(r)
 			if err != nil {
@@ -58,18 +58,18 @@ func TestLayerC_GoldenRegression(t *testing.T) {
 				t.Fatalf("decoded message is not *frame.ProtocolMessage")
 			}
 
-			// 3. Auto-decode payload
+			// 3. 自动解码数据单元
 			if err := pm.DecodePayload(); err != nil {
 				t.Fatalf("DecodePayload: %v", err)
 			}
 
-			// 4. Re-encode the frame
+			// 4. 重编码该帧
 			goBytes, err := pm.Bytes()
 			if err != nil {
 				t.Fatalf("ProtocolMessage.Bytes(): %v", err)
 			}
 
-			// 5. Byte-for-byte comparison with Java original
+			// 5. 与 Java 原文件逐字节比较
 			if len(goBytes) != len(javaBytes) {
 				t.Errorf("length mismatch: Go=%d, Java=%d", len(goBytes), len(javaBytes))
 				return
@@ -84,7 +84,7 @@ func TestLayerC_GoldenRegression(t *testing.T) {
 		})
 	}
 
-	// 6. Also decode payload-only golden files (without protocol frame wrapper)
+	// 6. 同时解码仅含数据单元的金样文件(不带协议帧外壳)
 	payloadFiles, _ := filepath.Glob(filepath.Join(goldenDir, "payload_*.hex"))
 	if len(payloadFiles) > 0 {
 		t.Run("PayloadOnly", func(t *testing.T) {
@@ -94,13 +94,13 @@ func TestLayerC_GoldenRegression(t *testing.T) {
 					javaHex, _ := os.ReadFile(hexFile)
 					javaBytes, _ := utils.HexToBytes(strings.TrimSpace(string(javaHex)))
 
-					// Determine version from filename convention
+					// 依据文件命名约定确定版本
 					version := api.V2016
 					if strings.Contains(name, "v2025") || strings.Contains(name, "2025") {
 						version = api.V2025
 					}
 
-					// Load the codec for the payload type
+					// 加载该数据单元类型对应的编解码器
 					msgType := messageTypeFromPayload(name)
 					cdc := api.GetCodec(version, msgType)
 					if cdc == nil && version == api.V2016 {
@@ -144,14 +144,14 @@ func TestLayerC_GoldenRegression(t *testing.T) {
 	}
 }
 
-// messageTypeFromPayload returns the reflect.Type for a golden file payload name.
-// This is a helper used when golden files contain payload bytes without the
-// protocol frame wrapper.
+// messageTypeFromPayload 返回金样文件数据单元名称对应的 reflect.Type。
+// 该辅助函数用于金样文件只含数据单元字节、
+// 不带协议帧外壳的场景。
 //
-// TODO: expand this map to cover all payload types as golden files grow.
+// TODO: 随着金样文件增多,扩展该映射以覆盖所有数据单元类型。
 func messageTypeFromPayload(name string) reflect.Type {
-	// Map golden file payload names to their reflect types.
-	// Example entries:
+	// 将金样文件数据单元名称映射到其反射类型。
+	// 示例条目:
 	//   "vehicle_login_2016"        → reflect.TypeOf((*gbt2016.VehicleLogin)(nil)).Elem()
 	//   "vehicle_login_2025"        → reflect.TypeOf((*gbt2025.VehicleLoginV2025)(nil)).Elem()
 	//   "platform_login_2016"       → reflect.TypeOf((*gbt2016.PlatformLogin)(nil)).Elem()
@@ -162,6 +162,6 @@ func messageTypeFromPayload(name string) reflect.Type {
 	//   "key_exchange_2025"         → reflect.TypeOf((*gbt2025.KeyExchangeData)(nil)).Elem()
 	//   "real_time_data_2016"       → reflect.TypeOf((*gbt2016.RealTimeData)(nil)).Elem()
 	//   "real_time_data_2025"       → reflect.TypeOf((*gbt2025.RealTimeV2025Data)(nil)).Elem()
-	_ = name // placeholder — not yet implemented
+	_ = name // 占位符:尚未实现
 	return nil
 }

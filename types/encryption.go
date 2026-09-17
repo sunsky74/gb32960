@@ -1,12 +1,12 @@
 package types
 
-// EncryptionType represents the encryption mode of a protocol frame.
+// EncryptionType 表示协议帧的加密方式。
 type EncryptionType byte
 
 const (
-	EncryptionNone      EncryptionType = 0x01 // No encryption (pass-through)
-	EncryptionRSA       EncryptionType = 0x02 // RSA encryption (not implemented)
-	EncryptionAES128    EncryptionType = 0x03 // AES-128 encryption (not implemented)
-	EncryptionException EncryptionType = 0xFE // Encryption exception
-	EncryptionInvalid   EncryptionType = 0xFF // Invalid
+	EncryptionNone      EncryptionType = 0x01 // 不加密(直通)
+	EncryptionRSA       EncryptionType = 0x02 // RSA 加密(未实现)
+	EncryptionAES128    EncryptionType = 0x03 // AES-128 加密(未实现)
+	EncryptionException EncryptionType = 0xFE // 加密异常
+	EncryptionInvalid   EncryptionType = 0xFF // 无效
 )

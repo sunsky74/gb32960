@@ -1,32 +1,34 @@
 package realtime
 
 import (
+	"math"
+
 	"github.com/sunsky74/gb32960/api"
 	mdl "github.com/sunsky74/gb32960/model/gbt2025/realtime"
 	"github.com/sunsky74/gb32960/types"
 	"github.com/sunsky74/gb32960/utils"
 )
 
-// LocationV2025Codec encodes/decodes the V2025 车辆位置数据 sub-record
-// (TLV type 0x05). Wire layout mirrors Java LocationV2025Codec:
+// LocationV2025Codec 编解码 V2025 车辆位置数据子记录
+// (TLV 类型 0x05)。线格式与 Java LocationV2025Codec 一致:
 //
 //	StatusByte(u8) + CoordinateType(u8)
-//	+ OriginLongitude(u32 raw, ×10^6 with hemisphere sign)
-//	+ OriginLatitude(u32 raw, ×10^6 with hemisphere sign)
+//	+ OriginLongitude(u32 原始值, ×10^6 并带半球符号)
+//	+ OriginLatitude(u32 原始值, ×10^6 并带半球符号)
 //
-// StatusByte bit extraction (Java LocationV2025Codec lines 27-29, 42-52):
+// StatusByte 位提取(Java LocationV2025Codec 第 27-29、42-52 行):
 //
-//	bit 0 (0x01): 0=valid,        1=invalid
-//	bit 1 (0x02): 0=north lat,    1=south lat
-//	bit 2 (0x04): 0=east long,    1=west long
+//	bit 0 (0x01): 0=有效,        1=无效
+//	bit 1 (0x02): 0=北纬,        1=南纬
+//	bit 2 (0x04): 0=东经,        1=西经
 //
-// CoordinateType (Java CoordinateType): 0x01=WGS84 (apply WGS84→GCJ02),
-// 0x02=GCJ02 (passthrough), 0x03=OTHER (passthrough).
+// CoordinateType(Java CoordinateType):0x01=WGS84(应用 WGS84→GCJ02),
+// 0x02=GCJ02(直通),0x03=OTHER(直通)。
 //
-// When OriginLongitude/OriginLatitude is the BYTE4 error sentinel
-// (0xFFFFFFFE/0xFFFFFFFF), Java's decodeCoordinate returns null and the
-// GCJ02 conversion step is skipped. We mirror that by leaving
-// ConvertLongitude/ConvertLatitude at zero in that case.
+// 当 OriginLongitude/OriginLatitude 为 BYTE4 错误哨兵值时
+// (0xFFFFFFFE/0xFFFFFFFF),Java 的 decodeCoordinate 返回 null,
+// GCJ02 转换步骤被跳过。我们与此保持一致:此时把
+// ConvertLongitude/ConvertLatitude 留为零值。
 type LocationV2025Codec struct{}
 
 func init() {
@@ -49,15 +51,15 @@ func (c *LocationV2025Codec) Decode(r api.Reader) (api.Message, error) {
 	m.OriginLongitude = decodeV2025Coordinate(rawLon, m.EastFlag)
 	m.OriginLatitude = decodeV2025Coordinate(rawLat, m.NorthernFlag)
 
-	// Apply coordinate-system conversion only when both raw values are valid
-	// (Java skips conversion when BigDecimal decodeCoordinate returned null).
+	// 仅当两个原始值都有效时才应用坐标系转换
+	// (Java 在 BigDecimal decodeCoordinate 返回 null 时跳过转换)。
 	if !types.ErrByte4.IsInvalid(rawLon) && !types.ErrByte4.IsInvalid(rawLat) {
 		switch m.CoordinateType {
 		case 0x01: // WGS84 → GCJ02
 			gcj := utils.WGS84ToGCJ02(m.OriginLongitude, m.OriginLatitude)
 			m.ConvertLongitude = gcj.Longitude
 			m.ConvertLatitude = gcj.Latitude
-		default: // 0x02 GCJ02, 0x03 OTHER, or any unknown → passthrough
+		default: // 0x02 GCJ02、0x03 OTHER 或任何未知值 → 直通
 			m.ConvertLongitude = m.OriginLongitude
 			m.ConvertLatitude = m.OriginLatitude
 		}
@@ -89,9 +91,9 @@ func (c *LocationV2025Codec) Encode(w api.Writer, msg api.Message) error {
 	return nil
 }
 
-// decodeV2025Coordinate mirrors Java LocationV2025Codec.decodeCoordinate:
-// raw / 1_000_000 (HALF_UP to 6 decimals) with sign applied based on
-// isPositive (east/north = positive). Error sentinels pass through unchanged.
+// decodeV2025Coordinate 与 Java LocationV2025Codec.decodeCoordinate 一致:
+// 原始值 / 1_000_000(HALF_UP 保留 6 位小数),并根据
+// isPositive 施加符号(东/北为正)。错误哨兵值原样直通。
 func decodeV2025Coordinate(raw int64, isPositive bool) float64 {
 	if types.ErrByte4.IsInvalid(raw) {
 		return float64(raw)
@@ -103,8 +105,18 @@ func decodeV2025Coordinate(raw int64, isPositive bool) float64 {
 	return coord
 }
 
-// encodeV2025Coordinate mirrors Java LocationV2025Codec.encodeCoordinate:
-// abs(coord) × 1_000_000 truncated toward zero. Error sentinels pass through.
+// encodeV2025Coordinate 与 Java LocationV2025Codec.encodeCoordinate 一致:
+// abs(coord) × 1_000_000。Java 的 BigDecimal 运算精确,其
+// longValue() 截断因此无损;float64 在坐标量级上带有约 1e-8
+// 的表示误差,所以我们改为四舍五入到最近值 —— 对任何小数位 ≤6 的
+// 数值(即任何从线格式解码出来的值),这都能恢复出精确的原始整数,
+// 保持与 Java 互操作逐字节一致(与 2016 版 encodeLocationCoordinate 相同处理)。
+// 哨兵值检查先对截断后的值执行,与 Java 的
+// inInvalid(coordinate.longValue()) 顺序一致。
+// fix 2026-09-17:2025.md L320-321(表21 经度/纬度 DWORD,度×10^6,
+// 精确到百万分之一度)—— 旧实现 int64(coord*1_000_000) 截断会因
+// float64 表示误差丢失 1 LSB(如 249→248、16000002→16000001、
+// 128000003→128000002),改用 math.Round 后才能与原始整数逐字节互还原。
 func encodeV2025Coordinate(coord float64) int64 {
 	raw := int64(coord)
 	if types.ErrByte4.IsInvalid(raw) {
@@ -113,5 +125,5 @@ func encodeV2025Coordinate(coord float64) int64 {
 	if coord < 0 {
 		coord = -coord
 	}
-	return int64(coord * 1_000_000)
+	return int64(math.Round(coord * 1_000_000))
 }
